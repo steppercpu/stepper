@@ -1,0 +1,72 @@
+# This repository is the processor and its command line: the gate-level
+# description, the toolchain that builds and proves it, the contracts it runs
+# inside, and the netlist they all walk.
+#
+# The website, the brand assets and the hosting configuration are deliberately
+# not published here. They still live in this working tree and still build the
+# same way; they are simply not part of what this repository is for.
+
+# ------------------------------------------------------------- dependencies
+node_modules/
+
+# ------------------------------------------------------------------ secrets
+# There are no API keys in this project and no .env to fill in. `npm run
+# deploy` reads STEPPER_KEY from the environment, never from a file. These
+# lines exist so a stray file can never become a commit.
+.env
+.env.*
+!.env.example
+
+# --------------------------------------------------------- logs, OS, editor
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# ---------------------------------------------------------------- generated
+# Reproducible outputs. Large, binary or noisy, and all three are the things
+# git handles worst.
+#   npm run compile → contracts/out/*.json
+#   npm run evm     → contracts/out/gas-report.json
+#   npm run posters → marketing/out/*.png
+contracts/out/
+marketing/out/
+
+# ------------------------------------------------------------ hosting, host
+# Nothing about where this happens to be deployed belongs in a repository
+# about a processor.
+.railway/
+railway.json
+.railwayignore
+server.js
+docs/domain.md
+docs/api-keys.md
+
+# ------------------------------------------------- the site, brand, and copy
+# The pages, the stylesheet, the images and the marketing material.
+brand/
+marketing/
+tools/brand/
+tools/install-logo.js
+tools/render-brand.js
+tools/render-figures.js
+tools/render-posters.js
+docs/voice.md
+
+# public/ holds the site, but four of its scripts are the processor itself and
+# two more are written by the toolchain. Ignore the directory, then name the
+# exceptions. A directory has to be re-admitted before a file inside it can
+# be, which is why /public/scripts/ is unignored before its contents.
+/public/*
+!/public/scripts/
+/public/scripts/*
+!/public/scripts/st8-data.js
+!/public/scripts/machine.js
+!/public/scripts/asm.js
+!/public/scripts/strategy.js
+!/public/scripts/abi.js
+!/public/scripts/config.js

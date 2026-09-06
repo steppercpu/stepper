@@ -1,0 +1,38 @@
+{
+  "name": "stepper-site",
+  "version": "0.2.0",
+  "description": "STEPPER: a real 8-bit processor, 2,161 NAND gates, living inside a smart contract. Site, silicon and toolchain.",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "The STEPPER Authors",
+  "homepage": "https://steppercpu.tech",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "silicon": "node tools/build-netlist.js",
+    "test": "node tools/build-netlist.js",
+    "step": "node tools/run.js",
+    "t0": "node tools/build-contract.js",
+    "array": "node tools/build-array.js",
+    "compile": "node tools/compile.js",
+    "evm": "node tools/evm-test.js",
+    "deploy": "node tools/deploy.js",
+    "st16": "node tools/build-st16.js",
+    "brand": "node tools/render-brand.js",
+    "posters": "node tools/render-posters.js",
+    "figures": "node tools/render-figures.js",
+    "strategy": "node tools/strategy-test.js",
+    "logo": "node tools/install-logo.js"
+  },
+  "devDependencies": {
+    "@ethereumjs/common": "^4.4.0",
+    "@ethereumjs/util": "^9.1.0",
+    "@ethereumjs/vm": "^8.1.1",
+    "ethers": "^6.17.0",
+    "solc": "^0.8.28"
+  }
+}

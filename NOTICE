@@ -1,0 +1,53 @@
+STEPPER
+Copyright 2026 The STEPPER Authors
+
+This product includes software developed for the STEPPER project
+(https://steppercpu.tech).
+
+Licensed under the Apache License, Version 2.0. You may obtain a copy of
+the License in the LICENSE file at the root of this repository, or at
+http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------
+The name, and what the licence does not cover
+--------------------------------------------------------------------------
+
+The Apache License covers the code: the netlist, the toolchain, the
+contracts, the site and everything that builds them. Fork it, run it, sell
+what you make with it. That is the point of publishing it.
+
+It does not cover the name or the marks. Section 6 of the License grants no
+trademark rights, and this notice records what those are:
+
+  - the name STEPPER, and the part names ST-8 and ST-16 as used for this
+    project
+  - the ticker STEP
+  - the logo and mark, in every size and format under public/brand/ and
+    brand/source/
+  - the domain steppercpu.tech and the social accounts named on it
+
+A fork is welcome to be a processor on a chain. It may not present itself
+as this one. The reason is narrow and worth stating plainly: this project
+is associated with a token, and a fork wearing its name and mark would be
+indistinguishable from it at exactly the moment that distinction matters
+most to somebody deciding what to buy.
+
+Reasonable and customary use in describing origin is expressly permitted
+by Section 6 and is not affected by anything above. Saying "derived from
+STEPPER", or naming it in documentation, comparison or commentary, needs no
+permission from anyone.
+
+--------------------------------------------------------------------------
+Third-party material
+--------------------------------------------------------------------------
+
+There is none. Every file in this repository was written for STEPPER.
+
+The 2,161-gate netlist in public/scripts/st8-data.js is composed by
+tools/build-netlist.js from a single NAND primitive, and the contracts are
+generated from that same table.
+
+Build-time dependencies (solc, ethers, the ethereumjs EVM) are declared in
+package.json under devDependencies. npm fetches them; they are not vendored
+here, they never ship to a browser, and each carries its own licence in
+node_modules.

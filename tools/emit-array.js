@@ -1,0 +1,270 @@
+/**
+ * emit-array.js: turn a netlist into a gate array contract.
+ *
+ * One emitter for every generation. It is handed the optimised netlist and the
+ * machine's port map, and it writes a contract implementing IGateArray: the
+ * packed gate table, the flip-flop maps, the spec, and the assembly that walks
+ * them. ST-8 and ST-16 differ only in the numbers that come out of here.
+ *
+ * The packing is the interesting part. The netlist is emitted in the order it
+ * was built and renumbered in that same order, so gate k always drives net
+ * FIRST + k and the output column never has to be stored: two uint16 per gate
+ * instead of three, which is a third off the largest constant in the contract.
+ */
+"use strict";
+
+/** Every field the chip reads has to be contiguous, or it is not a shift. */
+function span(bits, name) {
+  for (var i = 1; i < bits.length; i++) {
+    if (bits[i] !== bits[i - 1] + 1) {
+      throw new Error(name + " is not contiguous, so the chip cannot use a shift");
+    }
+  }
+  return { offset: bits[0], width: bits.length };
+}
+
+function u16(n) {
+  if (n < 0 || n > 0xffff) throw new Error("net " + n + " does not fit a uint16");
+  return n.toString(16).padStart(4, "0");
+}
+
+/**
+ * @param {object} d     the netlist, in the shape build-netlist.js emits
+ * @param {object} opts  { part: "ST8", width: 8, romWords: 1024, ramBytes: 256 }
+ * @returns {{source: string, facts: object}}
+ */
+function emitArray(d, opts) {
+  var part = opts.part;
+  var W = opts.width;
+  var name = part.replace("-", "") + "GateArray";
+
+  // Gate k drives net FIRST + k. Assert it rather than trust it.
+  var first = d.gates[2];
+  for (var k = 0; k < d.gateCount; k++) {
+    if (d.gates[k * 3 + 2] !== first + k) {
+      throw new Error("gate outputs are not sequential from net " + first +
+        ": gate " + k + " drives " + d.gates[k * 3 + 2]);
+    }
+  }
+
+  var pc = span(d.pc, "pc");
+  var out = span(d.out, "out");
+  var ramAddr = span(d.ramAddr, "ramAddr");
+  var ramWdata = span(d.ramWdata, "ramWdata");
+
+  // The register file has to be one contiguous run of regCount * W bits, or a
+  // reader would need a table instead of an offset.
+  var regBits = [];
+  for (var r = 0; r < d.regs.length; r++) {
+    for (var bI = 0; bI < d.regs[r].length; bI++) regBits.push(d.regs[r][bI]);
+  }
+  var regs = span(regBits, "the register file");
+  if (regs.width !== d.regs.length * W) {
+    throw new Error("the register file is " + regs.width + " bits, expected " +
+      (d.regs.length * W));
+  }
+
+  // The RAM is described by its own ports rather than by an argument: the
+  // address width says how many cells there are, the write-data width says how
+  // wide one cell is. On the ST-8 that is 256 cells of 8 bits; on the ST-16 it
+  // is 256 cells of 16, which is 512 bytes and not 256.
+  var ramCells = Math.pow(2, ramAddr.width);
+  var ramCellBytes = Math.ceil(ramWdata.width / 8);
+  var ramBytes = ramCells * ramCellBytes;
+  if (256 % ramWdata.width !== 0) {
+    throw new Error("a RAM cell of " + ramWdata.width +
+      " bits does not pack a whole number to a word");
+  }
+
+  var flops = d.flopCount;
+  var stateWords = Math.ceil(flops / 256);
+  var instrBits = d.instr.length;
+  var inputBits = instrBits + 2 * W;
+  var inputWords = Math.ceil(inputBits / 256);
+  if (inputWords !== 1) {
+    throw new Error("the input vector spans " + inputWords +
+      " words, which the emitted assembly does not handle");
+  }
+
+  // Two uint16 per gate: the A input then the B input.
+  var table = "";
+  for (k = 0; k < d.gateCount; k++) {
+    table += u16(d.gates[k * 3]) + u16(d.gates[k * 3 + 1]);
+  }
+  var qnet = "", dnet = "";
+  for (var f = 0; f < flops; f++) {
+    dnet += u16(d.flops[2 * f]);
+    qnet += u16(d.flops[2 * f + 1]);
+  }
+  var innet = "";
+  var ports = d.instr.concat(d.inPort, d.ramRdata);
+  for (var p = 0; p < ports.length; p++) innet += u16(ports[p]);
+
+  var facts = {
+    part: part,
+    name: name,
+    width: W,
+    gates: d.gateCount,
+    flops: flops,
+    nets: d.nets,
+    first: first,
+    one: d.one,
+    stateWords: stateWords,
+    inputWords: inputWords,
+    instrBits: instrBits,
+    inputCount: ports.length,
+    romWords: opts.romWords,
+    ramBytes: ramBytes,
+    ramCells: ramCells,
+    regCount: d.regs.length,
+    regsOffset: regs.offset,
+    pc: pc, out: out, ramAddr: ramAddr, ramWdata: ramWdata,
+    haltBit: d.halt, carryBit: d.cf, zeroBit: d.zf, ramWeBit: d.ramWe,
+    tableBytes: table.length / 2,
+    mapBytes: (qnet.length + dnet.length + innet.length) / 2,
+  };
+
+  // MLOAD reads thirty-two bytes at a time, so the last net must not be the
+  // last byte of the allocation.
+  var alloc = d.nets + 64;
+
+  var source = `// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.24;
+
+import {IGateArray, Spec} from "./IGateArray.sol";
+
+/// @title  ${name}
+/// @notice ${part}: ${d.gateCount.toLocaleString("en-US")} NAND gates and ${flops} flip-flops, as a pure function.
+/// @dev    Generated by tools/build-array.js from the netlist. Not written by
+///         hand and not to be edited by hand.
+///
+///         Stateless and ownerless. No constructor argument, no storage, no
+///         privileged caller and no upgrade path. Every chip that runs on this
+///         generation shares this one deployment.
+///
+///         The gate table stores two nets per gate rather than three. The
+///         netlist is emitted in construction order and renumbered in that
+///         same order, so gate k always drives net ${first} + k and the output
+///         column is implicit.
+///
+///         The walk is assembly because the alternative is not. A uint8[] in
+///         memory spends thirty-two bytes on every net and bounds-checks every
+///         access: ${d.nets.toLocaleString("en-US")} nets would be ${Math.round(d.nets * 32 / 1024)} kB of memory and a quadratic
+///         expansion charge on top. One byte per net is ${(d.nets / 1024).toFixed(1)} kB, and each gate
+///         becomes two MLOADs and one MSTORE8.
+contract ${name} is IGateArray {
+    uint256 private constant NETS = ${d.nets};
+    uint256 private constant GATES = ${d.gateCount};
+    uint256 private constant FLOPS = ${flops};
+    uint256 private constant INPUTS = ${ports.length};
+    uint256 private constant STATE_WORDS = ${stateWords};
+    uint256 private constant INPUT_WORDS = ${inputWords};
+    uint256 private constant FIRST = ${first};
+    uint256 private constant ONE = ${d.one};
+
+    /// @dev Two uint16 per gate: the A input net, then the B input net.
+    bytes private constant TABLE = hex"${table}";
+    /// @dev One uint16 per flip-flop: the net its Q drives.
+    bytes private constant QNET = hex"${qnet}";
+    /// @dev One uint16 per flip-flop: the net its D reads.
+    bytes private constant DNET = hex"${dnet}";
+    /// @dev One uint16 per driven input, in the order instr, inPort, ramRdata.
+    bytes private constant INNET = hex"${innet}";
+
+    /// @notice Thrown when an argument does not have the width in spec().
+    error BadShape();
+
+    /// @inheritdoc IGateArray
+    function spec() external pure returns (Spec memory) {
+        return Spec({
+            gates: ${d.gateCount},
+            flops: ${flops},
+            nets: ${d.nets},
+            dataBits: ${W},
+            stateWords: ${stateWords},
+            inputWords: ${inputWords},
+            instrBits: ${instrBits},
+            romWords: ${opts.romWords},
+            ramBytes: ${ramBytes},
+            regCount: ${d.regs.length},
+            regsOffset: ${regs.offset},
+            pcOffset: ${pc.offset},
+            pcBits: ${pc.width},
+            outOffset: ${out.offset},
+            outBits: ${out.width},
+            ramAddrOffset: ${ramAddr.offset},
+            ramAddrBits: ${ramAddr.width},
+            ramWdataOffset: ${ramWdata.offset},
+            ramWdataBits: ${ramWdata.width},
+            haltBit: ${d.halt},
+            carryBit: ${d.cf},
+            zeroBit: ${d.zf},
+            ramWeBit: ${d.ramWe}
+        });
+    }
+
+    /// @inheritdoc IGateArray
+    function step(uint256[] calldata state, uint256[] calldata inputs)
+        external
+        pure
+        returns (uint256[] memory next)
+    {
+        if (state.length != STATE_WORDS || inputs.length != INPUT_WORDS) revert BadShape();
+
+        bytes memory tbl = TABLE;
+        bytes memory qn = QNET;
+        bytes memory dn = DNET;
+        bytes memory inn = INNET;
+
+        next = new uint256[](STATE_WORDS);
+
+        assembly {
+            let v := mload(0x40)
+            mstore(0x40, add(v, ${alloc}))
+            mstore8(add(v, ONE), 1)
+
+            let t := add(tbl, 32)
+            let q := add(qn, 32)
+            let d := add(dn, 32)
+            let n := add(inn, 32)
+
+            for { let i := 0 } lt(i, FLOPS) { i := add(i, 1) } {
+                let word := calldataload(add(state.offset, mul(shr(8, i), 32)))
+                mstore8(
+                    add(v, shr(240, mload(add(q, mul(i, 2))))),
+                    and(shr(and(i, 255), word), 1)
+                )
+            }
+
+            for { let i := 0 } lt(i, INPUTS) { i := add(i, 1) } {
+                let word := calldataload(add(inputs.offset, mul(shr(8, i), 32)))
+                mstore8(
+                    add(v, shr(240, mload(add(n, mul(i, 2))))),
+                    and(shr(and(i, 255), word), 1)
+                )
+            }
+
+            let out := add(v, FIRST)
+            for { let k := 0 } lt(k, GATES) { k := add(k, 1) } {
+                let e := mload(add(t, mul(k, 4)))
+                let a := byte(0, mload(add(v, shr(240, e))))
+                let b := byte(0, mload(add(v, and(shr(224, e), 0xffff))))
+                mstore8(add(out, k), iszero(and(a, b)))
+            }
+
+            let np := add(next, 32)
+            for { let i := 0 } lt(i, FLOPS) { i := add(i, 1) } {
+                if byte(0, mload(add(v, shr(240, mload(add(d, mul(i, 2))))))) {
+                    let slot := add(np, mul(shr(8, i), 32))
+                    mstore(slot, or(mload(slot), shl(and(i, 255), 1)))
+                }
+            }
+        }
+    }
+}
+`;
+
+  return { source: source, facts: facts };
+}
+
+module.exports = { emitArray: emitArray, span: span };

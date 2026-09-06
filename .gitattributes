@@ -1,0 +1,22 @@
+# Normalise line endings on the way in. Everything in this tree is LF today
+# and the project is developed on Windows, where a stray CRLF turns into a
+# whole-file diff that hides the one line that actually changed.
+* text=auto eol=lf
+
+# Binary. Never diffed, never normalised.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.ico    binary
+*.woff2  binary
+
+# Generated. Collapsed in GitHub diffs and excluded from language stats, so
+# a 46 kB netlist does not report this repository as a JSON dump. Rebuild it
+# with `npm run silicon`, which will not write it unless the checks pass.
+public/scripts/st8-data.js   linguist-generated=true
+public/scripts/abi.js        linguist-generated=true
+contracts/ST8GateArray.sol   linguist-generated=true
+contracts/ST16GateArray.sol  linguist-generated=true
+
+# The site is the product here, not a demo folder.
+public/**  linguist-vendored=false
