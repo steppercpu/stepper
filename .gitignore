@@ -55,6 +55,9 @@ tools/install-logo.js
 tools/render-brand.js
 tools/render-figures.js
 tools/render-posters.js
+tools/render-motion.js
+tools/gif.js
+tools/verify-terms.js
 docs/voice.md
 
 # public/ holds the site, but four of its scripts are the processor itself and

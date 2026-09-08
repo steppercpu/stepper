@@ -81,6 +81,24 @@ Object.keys(SIGS).forEach(function (k) {
   console.log("  " + SEL[k] + "  " + SIGS[k]);
 });
 
+/* Event topics, derived the same way and for the same reason.
+ *
+ * A log topic is the whole digest rather than the first four bytes of it, so
+ * it cannot come from selector(). The page needs this one to read a chip's
+ * history back out of the chain: Stepped carries the input byte and the cycle
+ * it went in on, which together with the ROM is the entire tape. */
+var EVENTS = {
+  stepped: "Stepped(address,uint40,uint256,uint256)",
+};
+var TOPIC = {};
+Object.keys(EVENTS).forEach(function (k) {
+  var sig = EVENTS[k];
+  var bytes = new Uint8Array(sig.length);
+  for (var i = 0; i < sig.length; i++) bytes[i] = sig.charCodeAt(i);
+  TOPIC[k] = "0x" + keccak.keccak256(bytes);
+  console.log("  " + TOPIC[k] + "  " + sig);
+});
+
 /* ------------------------------------------------- the implicit output column */
 
 var gateCount = D.gateCount;
@@ -624,6 +642,11 @@ var abiLines = [
 ];
 Object.keys(SEL).forEach(function (k) {
   abiLines.push("  " + k + ": \"" + SEL[k] + "\",   // " + SIGS[k]);
+});
+abiLines.push("");
+Object.keys(TOPIC).forEach(function (k) {
+  abiLines.push("  " + k + "Topic: \"" + TOPIC[k] + "\",");
+  abiLines.push("  // keccak256 of " + EVENTS[k]);
 });
 abiLines.push(
   "",

@@ -17,6 +17,9 @@ window.ST8_ABI = {
   program: "0xc860ebc6",   // program()
   spec: "0xf448c9bc",   // spec()
 
+  steppedTopic: "0xed5cd9f6d6997b24d4fe100f731d98974dc1b7603f1cf2982be98d1826c9ef48",
+  // keccak256 of Stepped(address,uint40,uint256,uint256)
+
   // Where each field sits inside the packed state word. Contiguous, so the
   // page reads them the same way the contract does: a shift and a mask.
   stateBits: 167,

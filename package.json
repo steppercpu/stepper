@@ -24,6 +24,8 @@
     "st16": "node tools/build-st16.js",
     "brand": "node tools/render-brand.js",
     "posters": "node tools/render-posters.js",
+    "terms": "node tools/verify-terms.js",
+    "motion": "node tools/render-motion.js",
     "figures": "node tools/render-figures.js",
     "strategy": "node tools/strategy-test.js",
     "logo": "node tools/install-logo.js"

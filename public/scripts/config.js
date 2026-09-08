@@ -53,6 +53,24 @@ window.CONFIG = (function () {
       renderer: null,  // draws the NFT card on-chain
       token: null,     // the project token, once it exists
       market: null,    // launchpad URL for the project token
+
+      // ---- pairs --------------------------------------------------------
+      // A chip's pool is created against an ERC-20, and any ERC-20 on this
+      // chain will do: the base asset, a tokenised equity, or another chip's
+      // token. So this is a shortcut list, not a whitelist, and the launchpad
+      // takes a pasted address for everything that is not on it.
+      //
+      // `address` stays null until it has been read off the chain rather than
+      // copied from somewhere. A label with no address is a shortcut the
+      // launchpad can show and cannot act on, which is the same rule every
+      // other address in this file follows.
+      pairs: [
+        { symbol: "WETH", address: null, note: "the chain's base asset" },
+        { symbol: "NVDA", address: null, note: "a tokenised equity" },
+        { symbol: "TSM", address: null, note: "a tokenised equity" },
+        { symbol: "MU", address: null, note: "a tokenised equity" },
+        { symbol: "SNDK", address: null, note: "a tokenised equity" },
+      ],
     },
 
     testnet: {
@@ -71,6 +89,10 @@ window.CONFIG = (function () {
       renderer: null,
       token: null,
       market: null,
+
+      // Nothing is listed here. On a testnet the shortcut list would be a
+      // guess, and the pasted-address path works without one.
+      pairs: [],
     },
   };
 
