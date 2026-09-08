@@ -36,13 +36,11 @@ desktop.ini
 contracts/out/
 marketing/out/
 
-# ------------------------------------------------------------ hosting, host
-# Nothing about where this happens to be deployed belongs in a repository
-# about a processor.
-.railway/
-railway.json
-.railwayignore
-server.js
+# ------------------------------------------------------- notes and operations
+# Working material and operational notes. The repository is the processor and
+# its command line; how any of it is run or hosted is not part of that, and
+# the patterns for those live in .git/info/exclude so this file does not
+# describe them either.
 docs/domain.md
 docs/api-keys.md
 
