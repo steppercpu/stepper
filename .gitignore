@@ -36,11 +36,18 @@ desktop.ini
 contracts/out/
 marketing/out/
 
-# ------------------------------------------------------- notes and operations
-# Working material and operational notes. The repository is the processor and
-# its command line; how any of it is run or hosted is not part of that, and
-# the patterns for those live in .git/info/exclude so this file does not
-# describe them either.
+# ----------------------------------------------------- not part of the chip
+# The repository is the processor and its command line. These are the runtime
+# and the working notes around it: real files, kept out because they are a
+# different job, not because they are secret.
+#
+# They stay in this file rather than in .git/info/exclude. That file is also
+# honoured by the deploy uploader, so a pattern hidden there is a file missing
+# from the running image, which is how the site went down once.
+.railway/
+railway.json
+.railwayignore
+server.js
 docs/domain.md
 docs/api-keys.md
 
