@@ -15,7 +15,7 @@
 [![Vectors](https://img.shields.io/badge/vectors-1%2C052%2C672%20passing-1f5c8b)](tools/build-netlist.js)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-6b7280)](package.json)
 
-[**steppercpu.tech**](https://steppercpu.tech) &nbsp;·&nbsp; [Runbook](RUNBOOK.md) &nbsp;·&nbsp; [Security](SECURITY.md)
+[**steppercpu.tech**](https://steppercpu.tech) &nbsp;·&nbsp; [Telegram](https://t.me/steppercpu) &nbsp;·&nbsp; [X](https://x.com/steppercpu) &nbsp;·&nbsp; [Runbook](RUNBOOK.md) &nbsp;·&nbsp; [Security](SECURITY.md)
 
 </div>
 
@@ -303,10 +303,35 @@ not, nothing is written and the old netlist stands.
 | ST-16, from the same description | 3,787 gates, builds and holds |
 | `ST8GateArray.sol` and the packing check | 11,216 B of the 24,576 B ceiling |
 | Compiled and proved in a real EVM | **done**, both generations |
-| Deployed on chain | **not yet.** `config.js` holds `null`, and the interface says so |
+| The token, on Robinhood Chain 4663 | **live.** `0xffC3776650cD2c9641cE72838f85c0a535CC440B` |
+| The processor, deployed on chain | **not yet.** `config.js` holds `null` for it, and the interface says so |
 | Gas figures | measured by `npm run evm`, never estimated |
 
 > A button that pretends to work is worse than a button that says it does not.
+
+### The token
+
+```
+Stepper CPU · STEP · 18 decimals
+0xffC3776650cD2c9641cE72838f85c0a535CC440B
+Robinhood Chain, id 4663
+```
+
+[Market](https://www.ponsfamily.com/launchpad/0xffC3776650cD2c9641cE72838f85c0a535CC440B)
+
+Every field above was read off the chain rather than copied from a launch
+form, and the address carries a valid EIP-55 checksum. Total supply is
+**1,000,000,000**, fixed at creation, with no mint function afterwards.
+
+**The order is the point.** The processor in this repository ran before the
+token existed, and it runs now on a machine with no wallet attached — in a
+browser, and in your terminal with `npm run step`. The token does one job: it
+pays for the clock. A processor with no oscillator needs somebody to want the
+next edge enough to buy it, and `step()` is open to anyone.
+
+There is no staking, no emissions schedule, no revenue share and no
+governance, and nothing about holding STEP entitles the holder to a payment of
+any kind. What it buys is clock edges.
 
 ---
 

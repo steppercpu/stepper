@@ -51,8 +51,14 @@ window.CONFIG = (function () {
       // ---- R1: the launchpad, not needed for T-0 ------------------------
       factory: null,   // ERC-721 + mint + per-chip tokens
       renderer: null,  // draws the NFT card on-chain
-      token: null,     // the project token, once it exists
-      market: null,    // launchpad URL for the project token
+
+      // The project token, live. Read off this chain before it was written
+      // here: Stepper CPU / STEP, eighteen decimals, a total supply of
+      // 1,000,000,000, and an address whose EIP-55 checksum verifies. The
+      // token pays for the clock; it is not the machine, and the two fields
+      // above are still null because the machine is not deployed yet.
+      token: "0xffC3776650cD2c9641cE72838f85c0a535CC440B",
+      market: "https://www.ponsfamily.com/launchpad/0xffC3776650cD2c9641cE72838f85c0a535CC440B",
 
       // ---- pairs --------------------------------------------------------
       // A chip's pool is created against an ERC-20, and any ERC-20 on this
