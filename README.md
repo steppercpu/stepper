@@ -311,23 +311,24 @@ not, nothing is written and the old netlist stands.
 
 ### The token
 
-```
-Stepper CPU · STEP · 18 decimals
-0xffC3776650cD2c9641cE72838f85c0a535CC440B
-Robinhood Chain, id 4663
-```
+| | |
+|:--|:--|
+| Name | Stepper CPU |
+| Symbol | STEP |
+| Decimals | 18 |
+| Total supply | 1,000,000,000, fixed at creation, no mint function after |
+| Chain | Robinhood Chain, id 4663 |
+| Contract | `0xffC3776650cD2c9641cE72838f85c0a535CC440B` |
+| Explorer | [blockscout](https://robinhoodchain.blockscout.com/address/0xffC3776650cD2c9641cE72838f85c0a535CC440B) |
+| Market | [pons](https://www.ponsfamily.com/launchpad/0xffC3776650cD2c9641cE72838f85c0a535CC440B) |
 
-[Market](https://www.ponsfamily.com/launchpad/0xffC3776650cD2c9641cE72838f85c0a535CC440B)
+Every field was read off the chain rather than copied from a launch form, and
+the address carries a valid EIP-55 checksum.
 
-Every field above was read off the chain rather than copied from a launch
-form, and the address carries a valid EIP-55 checksum. Total supply is
-**1,000,000,000**, fixed at creation, with no mint function afterwards.
-
-**The order is the point.** The processor in this repository ran before the
-token existed, and it runs now on a machine with no wallet attached — in a
-browser, and in your terminal with `npm run step`. The token does one job: it
-pays for the clock. A processor with no oscillator needs somebody to want the
-next edge enough to buy it, and `step()` is open to anyone.
+The processor here ran before the token existed and runs now with no wallet
+attached, in a browser and in a terminal. The token does one job: it pays for
+the clock. A processor with no oscillator needs somebody to want the next edge
+enough to buy it, and `step()` is open to anyone.
 
 There is no staking, no emissions schedule, no revenue share and no
 governance, and nothing about holding STEP entitles the holder to a payment of
