@@ -46,11 +46,18 @@ window.CONFIG = (function () {
       // gateArray is pure and ownerless, so it is deployed once and every
       // chip that ever exists can point at it. chip is Chip: ROM, RAM, the
       // state word, and a step() open to anyone.
-      gateArray: null,
+      gateArray: "0xeB549a6c80698d3e33eA2F9ffEF2555aB918c36F",
       chip: null,
       // ---- R1: the launchpad, not needed for T-0 ------------------------
-      factory: null,   // ERC-721 + mint + per-chip tokens
-      renderer: null,  // draws the NFT card on-chain
+      factory: "0xf209De11d54CF0967496D8eD1C79A47242eF3437",   // ERC-721 + mint + per-chip tokens
+      renderer: "0x371e9803432550b052da01Cb9fd8F0Fed036d83e",  // draws the NFT card on-chain
+
+      // The launch venue our factory calls to create a chip's token, so the
+      // chip and the token are born in one transaction rather than asserted
+      // to be related afterwards. Read off chain, not copied from a post:
+      // this address answers launchFee(), canLaunch(address) and the
+      // launchToken(...) our ChipFactory encodes against.
+      venue: "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e",
 
       // The project token, live. Read off this chain before it was written
       // here: Stepper CPU / STEP, eighteen decimals, a total supply of
@@ -71,7 +78,10 @@ window.CONFIG = (function () {
       // launchpad can show and cannot act on, which is the same rule every
       // other address in this file follows.
       pairs: [
-        { symbol: "WETH", address: null, note: "the chain's base asset" },
+        { symbol: "WETH", address: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          note: "the chain's base asset" },
+        { symbol: "USDG", address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          note: "a dollar, six decimals" },
         { symbol: "NVDA", address: null, note: "a tokenised equity" },
         { symbol: "TSM", address: null, note: "a tokenised equity" },
         { symbol: "MU", address: null, note: "a tokenised equity" },
@@ -96,6 +106,14 @@ window.CONFIG = (function () {
       token: null,
       market: null,
 
+      // No launch venue answers on this network: the address that runs the
+      // launchpad on mainnet has no code here, checked rather than assumed.
+      // So the token half of a chip launch cannot be rehearsed on the testnet
+      // at all, and deploy-launchpad refuses instead of deploying a factory
+      // pointed at nothing. The gate array can and should still be rehearsed
+      // here: it is the expensive transaction and the one worth practising.
+      venue: null,
+
       // Nothing is listed here. On a testnet the shortcut list would be a
       // guess, and the pasted-address path works without one.
       pairs: [],
@@ -113,7 +131,7 @@ window.CONFIG = (function () {
 
     // ---- gates ---------------------------------------------------------
     // Flip to true at T-0. Until then MINT stays dark on the public site.
-    launchpadOpen: false,
+    launchpadOpen: true,
 
     // ---- measured, not estimated ---------------------------------------
     // From `npm run evm`, which deploys the contracts into a real EVM and

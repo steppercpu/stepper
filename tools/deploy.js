@@ -126,7 +126,9 @@ function writeAddresses(network, gateArray, chip) {
   let block = cfg.slice(open, close);
   const before = block;
   block = block.replace(/(\n\s*)gateArray:\s*[^,]*,/, '$1gateArray: "' + gateArray + '",');
-  block = block.replace(/(\n\s*)chip:\s*[^,]*,/, '$1chip: "' + chip + '",');
+  if (chip) {
+    block = block.replace(/(\n\s*)chip:\s*[^,]*,/, '$1chip: "' + chip + '",');
+  }
   if (block === before) die("nothing was written into the '" + network + "' block");
 
   cfg = cfg.slice(0, open) + block + cfg.slice(close);
@@ -135,10 +137,11 @@ function writeAddresses(network, gateArray, chip) {
 }
 
 function parseArgs(argv) {
-  const o = { go: false, step: false, network: null };
+  const o = { go: false, step: false, network: null, arrayOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--go") o.go = true;
+    else if (a === "--array-only") o.arrayOnly = true;
     else if (a === "--step") o.step = true;
     else if (a === "--network" || a === "-n") o.network = argv[++i];
     else if (a === "--help" || a === "-h") o.help = true;
@@ -155,6 +158,10 @@ const HELP = `
     -n, --network   which network in config.js to use. Defaults to whichever
                     one config.js says is live. Rehearse on 'testnet'.
     --go            deploy ST8GateArray, then Chip against it.
+    --array-only    deploy the gate array and stop. The launchpad needs the
+                    array and does not need chip #1: the factory makes its own
+                    chips against it, so chip #1 can be the first one launched
+                    through the factory instead of a separate deployment.
     --step          after deploying, take the first cycle so the chip is live
                     rather than sitting at zero.
 
@@ -238,12 +245,19 @@ async function main() {
   console.log("=".repeat(62));
   console.log("  ST8GateArray    " + gaGas.toLocaleString().padStart(12) + " gas   " +
     gaArt.deployedSize.toLocaleString() + " B deployed");
-  console.log("  Chip            " + chipGas.toLocaleString().padStart(12) + " gas   " +
-    chipArt.deployedSize.toLocaleString() + " B deployed, " +
-    rom.words + "-word ROM");
-  console.log("  " + "-".repeat(58));
-  console.log("  total           " + total.toLocaleString().padStart(12) + " gas   " +
-    eth(cost) + " " + C.nativeSymbol);
+  if (o.arrayOnly) {
+    console.log("  Chip                       not sent   --array-only");
+    console.log("  " + "-".repeat(58));
+    console.log("  total           " + gaGas.toLocaleString().padStart(12) + " gas   " +
+      eth(gaGas * gasPrice) + " " + C.nativeSymbol);
+  } else {
+    console.log("  Chip            " + chipGas.toLocaleString().padStart(12) + " gas   " +
+      chipArt.deployedSize.toLocaleString() + " B deployed, " +
+      rom.words + "-word ROM");
+    console.log("  " + "-".repeat(58));
+    console.log("  total           " + total.toLocaleString().padStart(12) + " gas   " +
+      eth(cost) + " " + C.nativeSymbol);
+  }
   console.log("");
 
   const gasReport = path.join(OUT, "gas-report.json");
@@ -308,12 +322,39 @@ async function main() {
   // Twenty per cent over the estimate, so a busy block does not strand it.
   const gateArray = await send("ST8GateArray", gaArt.bytecode, gaGas * 12n / 10n);
 
-  // Now the array exists, the chip's real constructor argument can be priced
-  // by the chain rather than guessed at.
-  const chipData = chipArt.bytecode + chipCtor(gateArray, rom);
-  const realChipGas = await rpc.estimateGas({ from: wallet.address, data: chipData });
-  const chip = await send("Chip", chipData, realChipGas * 12n / 10n);
+  let chip = null;
+  if (!o.arrayOnly) {
+    // Now the array exists, the chip's real constructor argument can be priced
+    // by the chain rather than guessed at.
+    const chipData = chipArt.bytecode + chipCtor(gateArray, rom);
+    const realChipGas = await rpc.estimateGas({ from: wallet.address, data: chipData });
+    chip = await send("Chip", chipData, realChipGas * 12n / 10n);
+  }
   console.log("");
+
+  if (o.arrayOnly) {
+    const gaCode = await rpc.code(gateArray);
+    if (gaCode.toLowerCase() !== gaArt.deployedBytecode.toLowerCase()) {
+      die("the deployed gate array is not the contract we compiled");
+    }
+    console.log("Verifying");
+    console.log("=".repeat(62));
+    console.log("  pass  ST8GateArray bytecode on chain is byte-for-byte what we compiled");
+    console.log("");
+
+    writeAddresses(C.network, gateArray, null);
+    console.log("Written");
+    console.log("=".repeat(62));
+    console.log("  gateArray  " + gateArray);
+    console.log("");
+    console.log("  The silicon is on chain and nothing else is. Every chip that");
+    console.log("  ever exists points at this one address and it is never");
+    console.log("  deployed again.");
+    console.log("");
+    console.log("  Next: npm run deploy-launchpad");
+    console.log("");
+    return;
+  }
 
   /* --------------------------------------------------------------- verify */
 

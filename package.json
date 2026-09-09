@@ -31,6 +31,9 @@
     "cli": "node tools/build-cli.js",
     "figures": "node tools/render-figures.js",
     "strategy": "node tools/strategy-test.js",
+    "launchpad": "node tools/launchpad-test.js",
+    "abi": "node tools/abi-test.js",
+    "deploy-launchpad": "node tools/deploy-launchpad.js",
     "logo": "node tools/install-logo.js"
   },
   "devDependencies": {

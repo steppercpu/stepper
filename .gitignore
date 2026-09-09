@@ -13,6 +13,13 @@ node_modules/
 # There are no API keys in this project and no .env to fill in. `npm run
 # deploy` reads STEPPER_KEY from the environment, never from a file. These
 # lines exist so a stray file can never become a commit.
+
+# A private key never belongs in here either, and the way one gets in is
+# always a file made in a hurry with a name nobody thought to ignore. These
+# patterns exist so that hurry is survivable.
+.deploy-key
+*.key
+secrets/
 .env
 .env.*
 !.env.example

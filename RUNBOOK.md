@@ -127,7 +127,7 @@ Execution gas. A transaction adds 21,000 intrinsic on top.
 
 ---
 
-## 4. Deploy
+## 4. T-0: the processor
 
 Everything below is `npm run deploy`. It is documented end to end in
 [docs/deploy.md](docs/deploy.md); this is the short version.
@@ -179,21 +179,98 @@ names an address. `--go` is required; there is no way to send by accident.
 
 ---
 
-## 5. What is deliberately not built yet
+## 5. R1: the launchpad
 
-The launchpad is **R1**, not T-0, and building it early is the fastest way to
-turn a working processor into a broken one.
+R1 was going to wait behind T-0. It no longer does, and the reason is that the
+dependency turned out to be smaller than the plan assumed: **the launchpad
+needs the gate array, not chip #1.** The factory deploys its own chips against
+the array, so chip #1 can be the first chip launched through the launchpad,
+with a token and a card like everybody else's, instead of a separate
+deployment that has neither.
+
+| Contract | Deployed | What it is |
+|---|---|---|
+| `ChipRenderer` | 6,668 B | draws a chip's card from the chip's own address. `pure`, no storage, no owner |
+| `ChipFactory` | 15,757 B | one call: deploy a processor, launch its token, mint the deed |
+
+```bash
+npm run compile          # six contracts, all inside the EIP-170 ceiling
+npm run abi              # the page's encoder against an independent one
+npm run launchpad        # the R1 contracts, in a real EVM
+```
+
+### What the tests are for
+
+Two of them exist because of bugs that were found by writing them, and both
+would have been expensive:
+
+**The fee recipient.** The venue reads a zero fee recipient as "whoever called
+me", and whoever calls it is the factory. A factory that passed a zero
+straight through would have quietly become the creator of every token launched
+on it, collecting fees belonging to somebody else, with nothing about the
+transaction looking wrong. The factory now replaces a zero with the sender,
+and the test asserts it from the venue's side rather than from the factory's.
+
+**The change.** The whole of `msg.value` is forwarded so the opening buy can
+be made out of it, and the venue hands back what the buy did not spend. The
+factory had no `receive`, so every launch that sent more than the fee reverted
+— which is every launch anybody would actually want to make.
+
+### The testnet cannot rehearse a launch
+
+Checked, not assumed: the venue's address **has no code on chain 46630**. The
+token half of a chip launch has nothing to call there, so `deploy-launchpad`
+refuses on the testnet rather than deploying a factory pointed at nothing.
+
+Rehearse the gate array there anyway. It is the expensive transaction, and the
+rehearsal still proves signing, nonces, the chain's gas accounting and the
+write back into `config.js`.
+
+### The order
+
+```bash
+export STEPPER_KEY=0x…                              # never a file, never an argument
+
+npm run deploy -- --network testnet --array-only            # preflight
+npm run deploy -- --network testnet --array-only --go       # rehearse the silicon
+
+npm run deploy -- --array-only                              # preflight, mainnet
+npm run deploy -- --array-only --go                         # the silicon, once, for ever
+
+npm run deploy-launchpad                                    # preflight
+npm run deploy-launchpad -- --go                            # renderer, then factory
+```
+
+Then set `launchpadOpen: true` in `public/scripts/config.js` by hand and
+publish. It is deliberately not flipped by a script: the page going live is a
+decision, and the addresses being written is not the same thing as being ready
+to send people at it.
+
+### What it costs
+
+Priced from the chain, not estimated:
+
+| | gas | |
+|---|---|---|
+| `ST8GateArray` | 2,487,673 | paid once, by whoever deploys it first |
+| `ChipRenderer` | 1,507,649 | |
+| `ChipFactory` | 3,474,364 | it carries a whole processor's creation code |
+| **total** | **7,469,686** | **about 0.0013 ETH** at the price when this was written |
+
+Every launch after that costs its creator the venue's fee, **0.0005 ETH**,
+plus gas and whatever they choose to spend on their opening buy.
+
+### Still not built
 
 | Not built | Why it can wait |
 |---|---|
-| ERC-721 chips | T-0 needs one chip, not a factory |
-| Per-chip tokens | nothing to distribute until chips exist |
-| `tokenURI` renderer | no tokens |
+| A per-chip fee router | `FeeRouter` exists and is compiled; it is not tested yet |
 | Mining reserve, emission | the clock works without paying anyone |
+| A fleet index | the `Launched` event carries everything an index would |
 
-When you do build it, two traps are already documented and both are permanent
-if you get them wrong: **fund the reserve before attaching the token**, and on
-an L2 be certain which block number you are counting.
+Two traps remain documented and both are permanent if you get them wrong:
+**fund a reserve before attaching a token**, and on an L2 be certain which
+block number you are counting.
 
 ---
 
@@ -210,4 +287,8 @@ an L2 be certain which block number you are counting.
 | `npm run t0` | Node | `public/scripts/abi.js` |
 | `npm run st16` | Node | nothing, reports only |
 | `npm run strategy` | Node | nothing, checks the four programs |
+| `npm run launchpad` | Node | `contracts/out/card-preview.svg` |
+| `npm run abi` | Node | nothing, checks the page encodes the call |
+| `npm run deploy-launchpad` | Node + chain | `public/scripts/config.js`, once sent |
+| `npm run cli` | Node | `cli/`, the standalone package |
 | `npm test` | Node | same as `npm run silicon` |

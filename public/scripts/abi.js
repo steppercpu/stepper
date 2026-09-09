@@ -16,6 +16,15 @@ window.ST8_ABI = {
   ram: "0x1fc4b242",   // ram(uint256)
   program: "0xc860ebc6",   // program()
   spec: "0xf448c9bc",   // spec()
+  launch: "0x73a28fbd",   // launch(bytes,(string,string,string,string,(string,string,string,string,string),address,uint16,bool,bytes32,bytes32),uint256,address)
+  tokenURI: "0xc87b56dd",   // tokenURI(uint256)
+  records: "0x34461067",   // records(uint256)
+  idOfChip: "0x8bc56e80",   // idOfChip(address)
+  totalChips: "0x2ddbd13a",   // total()
+  launchFee: "0xcf3cf573",   // launchFee()
+  canLaunch: "0x58373f04",   // canLaunch(address)
+  previewLaunchEconomics: "0xf718b78c",   // previewLaunchEconomics(uint256,address)
+  launchConfigCount: "0xae72d871",   // launchConfigCount()
 
   steppedTopic: "0xed5cd9f6d6997b24d4fe100f731d98974dc1b7603f1cf2982be98d1826c9ef48",
   // keccak256 of Stepped(address,uint40,uint256,uint256)

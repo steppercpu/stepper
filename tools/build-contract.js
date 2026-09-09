@@ -74,6 +74,23 @@ var SIGS = {
   ram: "ram(uint256)",
   program: "program()",
   spec: "spec()",
+
+  /* The launchpad. One call deploys a processor and launches its token,
+     and the page has to encode it exactly: a selector typed by hand into a
+     script is a selector that drifts the first time an argument changes. */
+  launch: "launch(bytes,(string,string,string,string,(string,string,string,string,string),address,uint16,bool,bytes32,bytes32),uint256,address)",
+  tokenURI: "tokenURI(uint256)",
+  records: "records(uint256)",
+  idOfChip: "idOfChip(address)",
+  totalChips: "total()",
+
+  /* The venue is not ours. These are read off its own bytecode, not copied
+     from a post about it, and tools/abi-test.js checks the page against the
+     compiled factory rather than against this comment. */
+  launchFee: "launchFee()",
+  canLaunch: "canLaunch(address)",
+  previewLaunchEconomics: "previewLaunchEconomics(uint256,address)",
+  launchConfigCount: "launchConfigCount()",
 };
 var SEL = {};
 Object.keys(SIGS).forEach(function (k) {
