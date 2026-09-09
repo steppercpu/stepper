@@ -1,0 +1,42 @@
+{
+  "name": "stepper-cli",
+  "version": "0.1.0",
+  "description": "An 8-bit processor built from 2,161 NAND gates, run in your terminal. No dependencies.",
+  "keywords": [
+    "cpu",
+    "processor",
+    "nand",
+    "netlist",
+    "gates",
+    "emulator",
+    "assembler",
+    "8-bit",
+    "cli"
+  ],
+  "homepage": "https://steppercpu.tech",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steppercpu/stepper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/steppercpu/stepper/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "The STEPPER Authors",
+  "part": "ST-8",
+  "tagline": "the chain is the clock",
+  "type": "commonjs",
+  "bin": {
+    "stepper": "bin/stepper.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

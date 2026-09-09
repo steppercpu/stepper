@@ -61,7 +61,10 @@ tools/render-brand.js
 tools/render-figures.js
 tools/render-posters.js
 tools/render-motion.js
+tools/render-video.js
+tools/render-stills.js
 tools/gif.js
+tools/mp4.js
 tools/verify-terms.js
 docs/voice.md
 

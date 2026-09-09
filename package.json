@@ -26,6 +26,9 @@
     "posters": "node tools/render-posters.js",
     "terms": "node tools/verify-terms.js",
     "motion": "node tools/render-motion.js",
+    "video": "node tools/render-video.js",
+    "stills": "node tools/render-stills.js",
+    "cli": "node tools/build-cli.js",
     "figures": "node tools/render-figures.js",
     "strategy": "node tools/strategy-test.js",
     "logo": "node tools/install-logo.js"

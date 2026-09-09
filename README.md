@@ -142,6 +142,7 @@ npm run compile    # solc, and the EIP-170 ceiling
 npm run evm        # both generations, deployed into an EVM and proved
 npm run st16       # build and verify the 16-bit generation
 npm run deploy     # preflight; -- --network testnet to rehearse, --go to send
+npm run cli        # assemble cli/, the processor as a standalone package
 npm test           # same as npm run silicon
 ```
 
@@ -168,6 +169,32 @@ npm run step -- --help
 
 Each line is one clock edge: the instruction, the output port, the first three
 registers, the flags, and how many gates flipped on that edge.
+
+</details>
+
+<details>
+<summary><b><code>npm run cli</code> — the same processor, as a package</b></summary>
+
+<br>
+
+`npm run step` needs this repository. Not everybody who wants to see a
+processor run wants to clone one, so `npm run cli` assembles `cli/`: a
+self-contained package holding the runner, the assembler and the netlist, with
+no dependencies and nothing else in it.
+
+It is generated rather than written, and that is the point. The published
+processor has to be the processor this repository demonstrates and the
+contract walks; copying those files by hand is how the two quietly stop being
+the same machine. Rebuild it after `npm run silicon` and the package ships the
+netlist that was just verified.
+
+```bash
+npm run cli                     # writes cli/
+node cli/bin/stepper.js         # run it exactly as a stranger would
+```
+
+**Nothing is published.** Publishing is `npm publish` from `cli/`, and it is a
+decision rather than a build step, so no script in here performs it.
 
 </details>
 
@@ -237,6 +264,11 @@ tools/
   rpc.js             JSON-RPC over Node's own http
   cli.js             the banner every script prints
   strategy-test.js   the four programs, on the gates
+  build-cli.js       assemble cli/ from the sources above
+
+cli/                 GENERATED. the processor as one installable package:
+                     the runner, the assembler and the netlist, and nothing
+                     else. Not published.
 
 contracts/
   IGateArray.sol     spec() and step(), generation-agnostic
