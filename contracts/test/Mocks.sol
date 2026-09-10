@@ -71,3 +71,56 @@ contract MockVenue {
         return (address(t), address(uint160(0xC0FFEE)));
     }
 }
+
+/// @notice The venue's fee escrow, as far as the router is concerned: a
+///         balance that is credited to somebody and only moves when they ask.
+contract MockEscrow {
+    mapping(address => uint256) public balanceOf;
+
+    receive() external payable {}
+
+    function credit(address who) external payable {
+        balanceOf[who] += msg.value;
+    }
+
+    function claim() external {
+        uint256 owed = balanceOf[msg.sender];
+        balanceOf[msg.sender] = 0;
+        (bool ok, ) = msg.sender.call{value: owed}("");
+        require(ok, "claim");
+    }
+}
+
+/// @notice Just enough of the launch factory for the hatch.
+contract MockRecipientRegistry {
+    address public lastToken;
+    address public lastRecipient;
+    address public lastCaller;
+
+    function transferCreatorFeeRecipient(address token, address recipient) external {
+        lastToken = token;
+        lastRecipient = recipient;
+        lastCaller = msg.sender;
+    }
+}
+
+/// @notice A chip that costs gas to step, so a reimbursement has something to
+///         reimburse. It also counts, so a test can prove the edge was taken.
+contract MockChip {
+    uint256 public cycle;
+    uint256 public lastIn;
+
+    function step(uint256 inValue) external {
+        lastIn = inValue;
+        cycle += 1;
+        /* Burn a little, so the measured cost is not zero. */
+        uint256 acc;
+        for (uint256 i = 0; i < 40; i++) acc = uint256(keccak256(abi.encode(acc, i)));
+        lastIn = inValue + (acc & 0);
+    }
+}
+
+/// @notice A recipient that refuses ether, for the payout-failure path.
+contract Rejector {
+    function ping() external pure returns (bool) { return true; }
+}
