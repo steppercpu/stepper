@@ -9,9 +9,35 @@ those do not appear below.
 Dates are the day the work landed. Every figure quoted is one a command in
 this repository prints.
 
-## Unreleased
+## 0.3.0
+
+One chip becomes many. This release adds the contracts that let anybody
+deploy their own processor and its token in a single transaction, a package
+that runs the machine with no chain involved at all, and a router for the
+fees the arrangement produces.
 
 ### Added
+
+- **`stepper-cli`, published on npm at 0.1.0.** `npx stepper-cli` assembles a
+  program and runs it against the same netlist the contracts carry — no
+  wallet, no account, nothing cloned. It keeps its own version line because
+  it is its own package; the number above this section is the repository's.
+
+- **`ChipFactory` and `ChipRenderer`.** One transaction deploys a chip and
+  launches its token, and the factory keeps neither: the chip, the tokens it
+  bought and any change all go back to the caller. `ChipRenderer` is `pure`
+  from end to end and returns the card as a data URI, so a chip's image is
+  read off the chain rather than fetched from a server that has to stay up.
+
+- **`FeeRouter`.** Creator fees land in escrow, and this collects and splits
+  them along shares fixed at construction. It has no withdrawal function at
+  all — a claim worth testing rather than a comment, so `npm run router`
+  deploys it into a real EVM and puts 25 checks to it, one of which is that
+  no withdrawal path exists anywhere in the ABI.
+
+- **`npm run router` and `npm run launchpad`.** Two suites over the new
+  contracts. The launchpad one also writes `contracts/out/card-preview.svg`,
+  so the card a chip would own can be looked at before anything is deployed.
 
 - **Event topics in `abi.js`.** The generated ABI file carried function
   selectors only. It now also carries the topic hash for `Stepped`, derived
