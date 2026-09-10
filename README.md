@@ -330,9 +330,15 @@ not, nothing is written and the old netlist stands.
 | Contract | `0xffC3776650cD2c9641cE72838f85c0a535CC440B` |
 | Explorer | [blockscout](https://robinhoodchain.blockscout.com/address/0xffC3776650cD2c9641cE72838f85c0a535CC440B) |
 | Market | [pons](https://www.ponsfamily.com/launchpad/0xffC3776650cD2c9641cE72838f85c0a535CC440B) |
+| Curve | **graduated.** `graduated()` on the curve reads true and it holds no supply and no ether |
 
 Every field was read off the chain rather than copied from a launch form, and
 the address carries a valid EIP-55 checksum.
+
+The curve has since graduated: it holds nothing, and the liquidity it raised
+sits in the venue's locked pool rather than anywhere the creator can reach.
+That is the venue's rule and not a promise of ours, which is why it is stated
+as a thing you can read off `graduated()` rather than as an assurance.
 
 The processor here ran before the token existed and runs now with no wallet
 attached, in a browser and in a terminal. The token does one job: it pays for
