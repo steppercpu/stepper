@@ -28,6 +28,12 @@ gate by gate by a contract.
 
 No Verilog. No synthesiser. No imported netlist. No runtime dependencies.
 
+Or run it without cloning anything at all:
+
+```bash
+npx stepper-cli
+```
+
 ```bash
 git clone https://github.com/steppercpu/stepper && cd stepper
 npm install        # dev-only: solc, an in-memory EVM, ethers

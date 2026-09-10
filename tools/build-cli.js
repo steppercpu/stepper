@@ -188,5 +188,5 @@ console.log("");
 console.log("build-cli: " + NAME + "@" + VERSION + " in cli/, " +
   Math.round(bytes / 1024) + " kB");
 console.log("build-cli: try it with  node cli/bin/" + BIN + ".js");
-console.log("build-cli: nothing has been published. That is `npm publish` from cli/,");
-console.log("           and it is a decision, not a build step.");
+console.log("build-cli: publishing is `npm publish` from cli/, and it is a decision");
+console.log("           rather than a build step, so this script never does it.");
