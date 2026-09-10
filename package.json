@@ -35,7 +35,8 @@
     "router": "node tools/router-test.js",
     "abi": "node tools/abi-test.js",
     "deploy-launchpad": "node tools/deploy-launchpad.js",
-    "logo": "node tools/install-logo.js"
+    "logo": "node tools/install-logo.js",
+    "emoji": "node tools/render-emoji.js"
   },
   "devDependencies": {
     "@ethereumjs/common": "^4.4.0",

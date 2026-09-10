@@ -70,6 +70,7 @@ tools/render-posters.js
 tools/render-motion.js
 tools/render-video.js
 tools/render-stills.js
+tools/render-emoji.js
 tools/gif.js
 tools/mp4.js
 tools/verify-terms.js
