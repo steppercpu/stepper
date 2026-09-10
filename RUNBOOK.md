@@ -127,7 +127,7 @@ Execution gas. A transaction adds 21,000 intrinsic on top.
 
 ---
 
-## 4. T-0: the processor
+## 4. T-0: the processor  ⟵ *shipped*
 
 Everything below is `npm run deploy`. It is documented end to end in
 [docs/deploy.md](docs/deploy.md); this is the short version.
@@ -179,7 +179,7 @@ names an address. `--go` is required; there is no way to send by accident.
 
 ---
 
-## 5. R1: the launchpad
+## 5. R1: the launchpad  ⟵ *shipped*
 
 R1 was going to wait behind T-0. It no longer does, and the reason is that the
 dependency turned out to be smaller than the plan assumed: **the launchpad
@@ -264,7 +264,7 @@ plus gas and whatever they choose to spend on their opening buy.
 
 | Not built | Why it can wait |
 |---|---|
-| A per-chip fee router | `FeeRouter` exists and is compiled; it is not tested yet |
+| A per-chip fee router | `FeeRouter` is written, compiled and tested. It is not deployed. |
 | Mining reserve, emission | the clock works without paying anyone |
 | A fleet index | the `Launched` event carries everything an index would |
 
@@ -288,6 +288,7 @@ block number you are counting.
 | `npm run st16` | Node | nothing, reports only |
 | `npm run strategy` | Node | nothing, checks the four programs |
 | `npm run launchpad` | Node | `contracts/out/card-preview.svg` |
+| `npm run router` | Node | nothing, checks the fee router |
 | `npm run abi` | Node | nothing, checks the page encodes the call |
 | `npm run deploy-launchpad` | Node + chain | `public/scripts/config.js`, once sent |
 | `npm run cli` | Node | `cli/`, the standalone package |
