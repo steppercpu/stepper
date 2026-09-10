@@ -149,6 +149,9 @@ npm run evm        # both generations, deployed into an EVM and proved
 npm run st16       # build and verify the 16-bit generation
 npm run deploy     # preflight; -- --network testnet to rehearse, --go to send
 npm run cli        # assemble cli/, the processor as a standalone package
+npm run launchpad  # the R1 contracts, in a real EVM
+npm run router     # the fee router, in a real EVM
+npm run abi        # the page encoder against an independent one
 npm test           # same as npm run silicon
 ```
 
