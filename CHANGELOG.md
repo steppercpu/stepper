@@ -9,6 +9,17 @@ those do not appear below.
 Dates are the day the work landed. Every figure quoted is one a command in
 this repository prints.
 
+## Unreleased
+
+### Added
+
+- **`stepper-cli` 0.2.0: `verify`.** `npx stepper-cli verify 0x…` reads every
+  cycle a deployed chip has logged, replays each one on the netlist in the
+  package, and checks every output and the final `snapshot()`. 0.1.0 shipped
+  without it, so on that version the address was read as a program file.
+  `--rpc` names another endpoint for the same chain when the default one
+  cannot be reached, and the error for an unreachable endpoint now says so.
+
 ## 0.3.0
 
 One chip becomes many. This release adds the contracts that let anybody

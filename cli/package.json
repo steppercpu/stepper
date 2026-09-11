@@ -1,6 +1,6 @@
 {
   "name": "stepper-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An 8-bit processor built from 2,161 NAND gates, run in your terminal. No dependencies.",
   "keywords": [
     "cpu",

@@ -133,7 +133,19 @@ function main() {
     verifyChip(address, at > 0 ? process.argv[at + 1] : null)
       .then((code) => { process.exitCode = code; })
       .catch((e) => {
-        process.stderr.write("\n  " + (e.message || e) + "\n\n");
+        const msg = String((e && e.message) || e);
+        process.stderr.write("\n  " + msg + "\n");
+        /* A bare "fetch failed" means the request never reached a chain at
+           all: some networks resolve the default RPC host to a block page.
+           The replay is the same against any endpoint for this chain, so the
+           useful answer is how to name another one. */
+        if (/fetch failed/i.test(msg)) {
+          process.stderr.write(
+            "\n  the RPC endpoint could not be reached from this network." +
+            "\n  any endpoint for the same chain gives the same answer:" +
+            "\n\n    " + CALLED + " verify " + address + " --rpc https://steppercpu.tech/rpc\n");
+        }
+        process.stderr.write("\n");
         process.exitCode = 1;
       });
     return;

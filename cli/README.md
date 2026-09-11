@@ -39,6 +39,24 @@ stepper my.asm --cycles 500 --quiet
 | `--cycles <n>` | how many clock edges to take |
 | `--quiet` | the final state only |
 
+## Verifying a chip on chain
+
+```
+npx stepper-cli verify 0x…
+```
+
+Reads every cycle a deployed chip has logged, replays each one on the
+netlist in this package, and checks that every output matches and that the
+final state equals the chip's own `snapshot()`. This is the one command that
+uses the network.
+
+If the default RPC endpoint cannot be reached from your network, name
+another one for the same chain. The replay does not depend on which:
+
+```
+npx stepper-cli verify 0x… --rpc https://steppercpu.tech/rpc
+```
+
 ## Writing a program
 
 ```asm

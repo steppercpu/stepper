@@ -34,7 +34,7 @@ var OUT = path.join(ROOT, "cli");
 
 /* The package's own version, and not the repository's. The site and the
    package are released on different days for different reasons. */
-var VERSION = "0.1.0";
+var VERSION = "0.2.0";
 var NAME = "stepper-cli";
 var BIN = "stepper";
 
@@ -110,6 +110,24 @@ var README = [
   "| `--in <byte>` | the value on the input port |",
   "| `--cycles <n>` | how many clock edges to take |",
   "| `--quiet` | the final state only |",
+  "",
+  "## Verifying a chip on chain",
+  "",
+  "```",
+  "npx " + NAME + " verify 0x…",
+  "```",
+  "",
+  "Reads every cycle a deployed chip has logged, replays each one on the",
+  "netlist in this package, and checks that every output matches and that the",
+  "final state equals the chip's own `snapshot()`. This is the one command that",
+  "uses the network.",
+  "",
+  "If the default RPC endpoint cannot be reached from your network, name",
+  "another one for the same chain. The replay does not depend on which:",
+  "",
+  "```",
+  "npx " + NAME + " verify 0x… --rpc https://steppercpu.tech/rpc",
+  "```",
   "",
   "## Writing a program",
   "",
