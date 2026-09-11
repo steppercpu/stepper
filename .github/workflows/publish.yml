@@ -104,11 +104,16 @@ jobs:
       - name: Both generations, inside a real EVM
         run: npm run evm
 
-      - name: The launch contracts, the fee router and the selectors
+      - name: The launch contracts and the fee router
         run: |
           npm run launchpad
           npm run router
-          npm run abi
+
+      # There is no selector check here. `npm run abi` proves the page's ABI
+      # encoder against ethers, and the page is not in this repository — the
+      # website is deliberately unpublished, as the .gitignore header says.
+      # The suite still exists and still runs in the working tree; it simply
+      # has nothing to read here. Do not fix this by committing the page.
 
       - name: Build both packages
         run: |
