@@ -96,3 +96,6 @@ docs/voice.md
 !/public/scripts/strategy.js
 !/public/scripts/abi.js
 !/public/scripts/config.js
+
+# Working instruction, not documentation. Rule 1 explains why.
+CLAUDE.md
