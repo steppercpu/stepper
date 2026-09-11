@@ -44,7 +44,8 @@
     "tour": "node tools/render-tour.js",
     "relay": "node tools/rpc-relay.js",
     "score": "node tools/score.js",
-    "audio": "node tools/render-audio.js"
+    "audio": "node tools/render-audio.js",
+    "examples": "node tools/examples-check.js"
   },
   "devDependencies": {
     "@ethereumjs/common": "^4.4.0",

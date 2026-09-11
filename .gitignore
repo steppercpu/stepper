@@ -57,6 +57,7 @@ railway.json
 server.js
 tools/serve-check.js
 tools/csp-check.js
+tools/examples-check.js
 docs/domain.md
 docs/api-keys.md
 
