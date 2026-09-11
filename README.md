@@ -303,6 +303,47 @@ not, nothing is written and the old netlist stands.
 
 ---
 
+## How a chip is launched
+
+Every chip launched through this project is launched through the same venue
+its token trades on, and the two are created in one transaction rather than
+made separately and asserted to be related afterwards.
+
+`ChipFactory` takes the venue as a constructor argument and holds it as an
+immutable:
+
+```solidity
+constructor(IGateArray array, ILaunchVenue venue, IChipRenderer renderer)
+```
+
+A single call to `launch()` then does three things that cannot come apart:
+
+1. deploys a `Chip` against the gate array, with the ROM written in at
+   construction and no function anywhere that can change it afterwards;
+2. calls the venue's `launchToken(...)` to create that chip's token on a
+   bonding curve;
+3. mints the ERC-721 deed recording who created it.
+
+The venue is `0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e` on chain 4663, and
+the launch fee it charges is read from `launchFee()` rather than written here,
+because a number copied into a document is a number that goes stale. At the
+time of writing it answers 0.0005 ETH.
+
+Two consequences worth stating plainly, because both are checkable and neither
+is flattering to assume.
+
+**The factory keeps nothing.** The creator's fee recipient is passed through to
+the venue as the caller's address, never the factory's, and the opening buy is
+credited to whoever launched. `npm run launchpad` checks that the factory holds
+no ether at all after a launch, and that the venue was told the creator rather
+than the factory — the failure it exists to catch is a factory that quietly
+becomes the owner of everybody else's launch.
+
+**The venue's rules bind us the same as anyone.** The per-wallet cap, the fee
+split and the locked pool at graduation are the venue's, enforced by its
+contracts against every launch through it including ours. That is why they are
+stated here as things you can read off chain rather than as assurances.
+
 ## Status
 
 | | |
