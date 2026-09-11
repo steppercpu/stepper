@@ -181,4 +181,5 @@ var SELFTEST = [
 module.exports = {
   assemble: assemble,
   sources: { ledger: LEDGER, selftest: SELFTEST },
+  forms: FORMS,
 };

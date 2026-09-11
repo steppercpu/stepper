@@ -47,13 +47,16 @@ function die(msg) {
 }
 
 function parseArgs(argv) {
-  const o = { file: null, prog: "ledger", input: 0, cycles: 40, quiet: false };
+  const o = {
+    file: null, prog: "ledger", input: 0, cycles: 40, quiet: false, listing: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--in" || a === "-i") o.input = +argv[++i];
     else if (a === "--cycles" || a === "-c") o.cycles = +argv[++i];
     else if (a === "--prog" || a === "-p") o.prog = argv[++i];
     else if (a === "--quiet" || a === "-q") o.quiet = true;
+    else if (a === "--listing" || a === "-l") o.listing = true;
     else if (a === "--help" || a === "-h") o.help = true;
     else if (a[0] !== "-") o.file = a;
     else die("unknown option '" + a + "'. Try --help.");
@@ -76,6 +79,7 @@ const HELP = `
     -i, --in <0-255>     the byte the sponsor hands to step()  (default 0)
     -c, --cycles <n>     how many clock edges to take          (default 40)
     -q, --quiet          only the final state
+    -l, --listing        the encoding instead of the run
 
   ${CALLED} verify <address> [--rpc <url>]
 
@@ -160,6 +164,44 @@ function main() {
 
   if (!o.quiet) {
     cli.header("STEP", label + " on " + D.gateCount.toLocaleString() + " gates");
+  }
+
+  /* The encoding, rather than the run.
+   *
+   * A word is 25 bits and the fields never move: the same layout carries an
+   * 8-bit program and a 16-bit one, which is why one assembler serves both
+   * generations. That is easy to assert and better shown, so this prints the
+   * hex beside the source and splits it into the four fields. */
+  if (o.listing) {
+    const FORM_OF = require("./netlist/asm.js").forms;
+    console.log("  word = [24:20] op   [19:16] rd   [15:12] rs   [11:0] imm/addr");
+    console.log("");
+    console.log("   PC   WORD       SOURCE              op    rd    rs   imm");
+    console.log("  " + "-".repeat(58));
+    for (const line of listing) {
+      const w = parseInt(line.hex, 16);
+      const op = (w >>> 20) & 0x1f;
+      const rd = (w >>> 16) & 0xf;
+      const rs = (w >>> 12) & 0xf;
+      const im = w & 0xfff;
+      /* A dash where the field is not part of this form: printing a zero for
+         a register an instruction never reads is how a reader learns the
+         wrong thing from a correct number. */
+      const f = FORM_OF[line.src.trim().split(/\s+/)[0]] || "";
+      const col = (v, used, w2) =>
+        (used ? v : "-").toString().padStart(w2);
+      console.log(
+        "  " + String(line.pc).padStart(3) +
+        "   " + line.hex +
+        "    " + line.src.padEnd(18) +
+        col(op.toString(16).padStart(2, "0"), true, 4) +
+        col(rd, f === "rd" || f === "rr" || f === "imm" || f === "load", 6) +
+        col(rs, f === "rr" || f === "store", 6) +
+        col(im.toString(16).padStart(3, "0"),
+          f === "imm" || f === "addr" || f === "load" || f === "store", 6)
+      );
+    }
+    return;
   }
 
   const m = new Machine(D, rom);
