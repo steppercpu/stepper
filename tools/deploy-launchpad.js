@@ -84,10 +84,11 @@ function writeAddresses(network, factory, renderer) {
 }
 
 function parseArgs(argv) {
-  const o = { go: false, network: null };
+  const o = { go: false, network: null, cardOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--go") o.go = true;
+    else if (a === "--card-only") o.cardOnly = true;
     else if (a === "--network" || a === "-n") o.network = argv[++i];
     else if (a === "--help" || a === "-h") o.help = true;
     else die("unknown option '" + a + "'. Try --help.");
@@ -102,6 +103,10 @@ const HELP = `
                     whether the venue will accept a contract. Sends nothing.
     -n, --network   which network in config.js to use. Rehearse on 'testnet'.
     --go            deploy ChipRenderer, then ChipFactory against it.
+    --card-only     deploy ChipRenderer alone and stop. The deployed
+                    factory keeps the renderer it was built with, because
+                    that reference is immutable; this is the one the page
+                    calls directly. Recorded as cardRenderer in config.
 
   Needs STEPPER_KEY in the environment, and a gate array already deployed.
 `;
@@ -137,7 +142,10 @@ function word(v) {
   if (Number(chainId) !== C.chainId) {
     die("the endpoint answers chain " + Number(chainId) + ", config.js says " + C.chainId);
   }
-  const gasPrice = await rpc.gasPrice();
+  const quoted = BigInt(await rpc.gasPrice());
+  const head = await rpc.call("eth_getBlockByNumber", ["latest", false]);
+  const baseFee = head && head.baseFeePerGas ? BigInt(head.baseFeePerGas) : 0n;
+  const gasPrice = ((quoted > baseFee ? quoted : baseFee) * 15n) / 10n;
   console.log("  network         " + C.network);
   console.log("  chain id        " + Number(chainId) + "  (matches config.js)");
   console.log("  block           " + (await rpc.blockNumber()).toLocaleString("en-US"));
@@ -176,7 +184,7 @@ function word(v) {
   }
   console.log("");
 
-  if (C.factory || C.renderer) {
+  if ((C.factory || C.renderer) && !o.cardOnly) {
     die("config.js already names a launchpad on '" + C.network + "'.\n" +
       "  factory:  " + C.factory + "\n  renderer: " + C.renderer + "\n" +
       "  Clear them by hand if you really mean to deploy a second one.");
@@ -262,6 +270,23 @@ function word(v) {
   console.log("Sending");
   console.log("=".repeat(62));
   const renderer = await send(rendererData, "ChipRenderer");
+
+  /* A renderer takes no constructor arguments, so unlike the factory below
+     its deployed code should match the artifact byte for byte. */
+  if (o.cardOnly) {
+    const got = (await rpc.code(renderer)).replace(/^0x/, "").toLowerCase();
+    const want = rendererArt.deployedBytecode.replace(/^0x/, "").toLowerCase();
+    if (got !== want) die("the deployed renderer does not match the artifact");
+    console.log("  code            matches the artifact, byte for byte");
+    console.log("");
+    console.log("  cardRenderer    " + renderer);
+    console.log("");
+    console.log("  The factory still calls " + C.renderer + ",");
+    console.log("  because ChipFactory holds that address as an immutable.");
+    console.log("  tokenURI on the deed is unchanged until a new factory.");
+    console.log("");
+    return;
+  }
   const factory = await send(
     factoryArt.bytecode + word(C.gateArray) + word(C.venue) + word(renderer), "ChipFactory");
   console.log("");

@@ -76,7 +76,21 @@ window.CONFIG = (function () {
       chipToken: "0x847ce1e7505b4323ca6c06caee97d87aa8c481ca",
       // ---- R1: the launchpad, not needed for T-0 ------------------------
       factory: "0xf209De11d54CF0967496D8eD1C79A47242eF3437",   // ERC-721 + mint + per-chip tokens
-      renderer: "0x371e9803432550b052da01Cb9fd8F0Fed036d83e",  // draws the NFT card on-chain
+      renderer: "0x371e9803432550b052da01Cb9fd8F0Fed036d83e",  // what the factory calls
+
+      // The same renderer, corrected, deployed on its own.
+      //
+      // The one above costs 67,533,668 gas to draw a card — about twice an
+      // Ethereum block — so every `eth_call` for it runs out of gas and
+      // `tokenURI` reverts for wallets, marketplaces and explorers alike.
+      // This one draws the same card for 22,092,544 and returns it.
+      //
+      // Two keys because there are two contracts and they disagree:
+      // `ChipFactory` holds its renderer as an immutable, so the deed's own
+      // `tokenURI` keeps calling the old one until a new factory is deployed.
+      // The page calls `render()` here directly, which is a view function and
+      // needs no factory. Do not collapse these into one name.
+      cardRenderer: "0x2f50da98e50369aeb7f08f9a2ff4777ba16d50b2",
 
       // The launch venue our factory calls to create a chip's token, so the
       // chip and the token are born in one transaction rather than asserted
