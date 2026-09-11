@@ -386,6 +386,45 @@ function compileMocks() {
   check("and its card describes the processor it actually is",
     (card.attributes.find((a) => a.trait_type === "Generation") || {}).value, "ST-16");
 
+  /* ----------------------- the rebate, against a chip the factory made
+   *
+   * npm run rebate proves CycleRebate's behaviour against a mock chip and a
+   * mock registry, which is the right place for the awkward cases. What it
+   * cannot prove is that the real factory answers idOfChip the way the rebate
+   * expects, or that a real chip's step() and snapshot() have the shapes it
+   * calls through. Those are three interfaces meeting, and they meet here. */
+
+  const rebateArt = artifact("CycleRebate");
+  const fuelToken = await deploy(mocks.MockToken.bytecode);
+  const RATE = 1000n;
+  const rebate = await deploy(rebateArt.bytecode, ethers.AbiCoder.defaultAbiCoder().encode(
+    ["address", "address", "uint256"],
+    [fuelToken.toString(), factory.toString(), RATE.toString()]
+  ));
+  const rbAbi = new ethers.Interface(rebateArt.abi);
+
+  await send(fuelToken, tAbi.encodeFunctionData("mint", [rebate.toString(), 5n * RATE]), 0n);
+
+  got = await send(chipAddr, chipAbi.encodeFunctionData("snapshot"), 0n);
+  const before = chipAbi.decodeFunctionResult("snapshot", got.ret)[0];
+
+  r = await send(rebate, rbAbi.encodeFunctionData("fuel", [chip, 7]), 0n, OTHER);
+  check("a real chip can be fuelled through the rebate", r.error, "null");
+
+  got = await send(chipAddr, chipAbi.encodeFunctionData("snapshot"), 0n);
+  check("and it advanced one cycle",
+    chipAbi.decodeFunctionResult("snapshot", got.ret)[0].toString(),
+    (before + 1n).toString());
+
+  got = await send(fuelToken, tAbi.encodeFunctionData("balanceOf", [OTHER.toString()]), 0n);
+  check("whoever asked for the edge was paid",
+    BigInt(bytesToHex(got.ret)).toString(), RATE.toString());
+
+  /* A chip this factory did not make is refused, and the factory is the one
+     saying so rather than a list somebody maintains. */
+  r = await send(rebate, rbAbi.encodeFunctionData("fuel", [renderer.toString(), 1]), 0n, OTHER);
+  check("something the factory never made is refused", r.error !== null, "true");
+
   const outDir = path.join(ROOT, "contracts", "out");
   fs.writeFileSync(path.join(outDir, "card-preview.svg"), svg);
   console.log("");

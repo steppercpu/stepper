@@ -110,14 +110,53 @@ contract MockRecipientRegistry {
 contract MockChip {
     uint256 public cycle;
     uint256 public lastIn;
+    address public lastSponsor;
 
     function step(uint256 inValue) external {
         lastIn = inValue;
+        lastSponsor = msg.sender;
         cycle += 1;
         /* Burn a little, so the measured cost is not zero. */
         uint256 acc;
         for (uint256 i = 0; i < 40; i++) acc = uint256(keccak256(abi.encode(acc, i)));
         lastIn = inValue + (acc & 0);
+    }
+
+    /// @dev The shape CycleRebate reads the counter from. A chip has no
+    ///      `cycle()` getter, so the rebate takes the first snapshot field.
+    function snapshot()
+        external
+        view
+        returns (uint256, uint256, uint256, bool, bool, bool)
+    {
+        return (cycle, 0, 0, false, false, false);
+    }
+}
+
+/// @notice A `step()` that does nothing, for the price of the calldata.
+/// @dev    The attack CycleRebate's registry check exists to stop: without it
+///         anybody could point the rebate at one of these and take the reserve
+///         apart without a chip being involved at all.
+contract FreeStep {
+    function step(uint256) external {}
+
+    function snapshot()
+        external
+        pure
+        returns (uint256, uint256, uint256, bool, bool, bool)
+    {
+        return (1, 0, 0, false, false, false);
+    }
+}
+
+/// @notice A registry that answers for whatever it has been told about.
+contract MockChipRegistry {
+    mapping(address => uint256) public idOfChip;
+    uint256 private next;
+
+    function add(address chip) external returns (uint256 id) {
+        id = ++next;
+        idOfChip[chip] = id;
     }
 }
 
