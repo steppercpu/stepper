@@ -1,18 +1,31 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {Spec} from "./IGateArray.sol";
+
+/// @notice The part of a chip this renderer needs: what silicon it runs on.
+interface IChipSpec {
+    function spec() external view returns (Spec memory);
+}
+
 /// @title  ChipRenderer
 /// @notice Draws a chip's card on chain, from the chip's own address.
-/// @dev    Nothing here fetches anything. A card that points at a server is a
-///         card that stops existing when somebody forgets to pay for the
-///         server, and an NFT whose picture can disappear is a receipt rather
-///         than an object.
+/// @dev    Nothing here fetches anything off chain. A card that points at a
+///         server is a card that stops existing when somebody forgets to pay
+///         for the server, and an NFT whose picture can disappear is a receipt
+///         rather than an object.
 ///
 ///         The lattice is derived from the chip's address, so no two cards are
 ///         alike and the picture is a function of the thing it depicts rather
-///         than a decoration chosen for it. There is no owner, no storage and
-///         no way to change what a card looks like after it is minted: this
-///         contract is `pure` throughout.
+///         than a decoration chosen for it. There is no owner and no storage:
+///         nobody can change what a card looks like after it is minted.
+///
+///         Every figure on the card is read from the chip's own `spec()` at
+///         the moment it is asked for. An earlier version carried the ST-8
+///         numbers as literals, which meant a chip of any other generation
+///         would have minted a card describing a processor it is not. `Chip`
+///         is generation-agnostic by design; this has to be as well, or the
+///         design buys nothing.
 contract ChipRenderer {
     string private constant WELL = "#04070a";
     string private constant GREEN = "#00e015";
@@ -26,29 +39,44 @@ contract ChipRenderer {
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     /// @notice The metadata document for one chip, as a data URI.
+    /// @dev    `view` rather than `pure` because the figures come from the
+    ///         chip. The interface the factory calls through already declared
+    ///         `view`, so this costs the caller nothing.
     function render(uint256 id, address chip, address token, address creator, uint64 born)
-        external pure returns (string memory)
+        external view returns (string memory)
     {
+        Spec memory s = IChipSpec(chip).spec();
         string memory num = _num(id);
-        string memory json = string.concat(
+        string memory gen = string.concat("ST-", _num(s.dataBits));
+
+        string memory head = string.concat(
             '{"name":"STEPPER Chip #', num,
-            '","description":"A real 8-bit processor living inside a contract on Robinhood Chain. ',
-            "2,161 NAND gates and 167 flip-flops, walked one clock edge at a time by whoever pays ",
-            'for the next one. This card is drawn on chain from the chip\'s own address.",',
-            '"image":"data:image/svg+xml;base64,', _b64(bytes(_svg(num, chip))), '",',
+            '","description":"A real ', _num(s.dataBits),
+            "-bit processor living inside a contract on Robinhood Chain. ",
+            _num(s.gates), " NAND gates and ", _num(s.flops),
+            " flip-flops, walked one clock edge at a time by whoever pays for the next one. ",
+            'This card is drawn on chain from the chip\'s own address.",'
+        );
+
+        string memory json = string.concat(
+            head,
+            '"image":"data:image/svg+xml;base64,', _b64(bytes(_svg(num, chip, gen, s.gates))), '",',
             '"attributes":[',
             '{"trait_type":"Chip","value":"', _addr(chip), '"},',
             '{"trait_type":"Token","value":"', _addr(token), '"},',
             '{"trait_type":"Creator","value":"', _addr(creator), '"},',
-            '{"trait_type":"Generation","value":"ST-8"},',
-            '{"trait_type":"NAND gates","value":2161},',
+            '{"trait_type":"Generation","value":"', gen, '"},',
+            '{"trait_type":"NAND gates","value":', _num(s.gates), "},",
+            '{"trait_type":"Flip-flops","value":', _num(s.flops), "},",
             '{"display_type":"date","trait_type":"Born","value":', _num(born), "}]}"
         );
         return string.concat("data:application/json;base64,", _b64(bytes(json)));
     }
 
     /// @dev The card. A die of gates, lit from the address, under a wordmark.
-    function _svg(string memory num, address chip) private pure returns (string memory) {
+    function _svg(string memory num, address chip, string memory gen, uint16 gates)
+        private pure returns (string memory)
+    {
         string memory cells = _lattice(chip);
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">',
@@ -57,7 +85,8 @@ contract ChipRenderer {
             '<text x="44" y="72" fill="', INK,
             '" font-family="monospace" font-size="30" letter-spacing="7">STEPPER</text>',
             '<text x="44" y="102" fill="', DIM,
-            '" font-family="monospace" font-size="15" letter-spacing="4">ST-8 &#183; 2161 NAND</text>',
+            '" font-family="monospace" font-size="15" letter-spacing="4">',
+            gen, " &#183; ", _num(gates), " NAND</text>",
             '<g transform="translate(44,150)">', cells, "</g>",
             '<text x="44" y="512" fill="', GREEN,
             '" font-family="monospace" font-size="42">#', num, "</text>",

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {TokenParams} from "../ChipFactory.sol";
+import {Spec} from "../IGateArray.sol";
 
 /// @notice Test fixtures. Not part of the deployed set: `npm run compile`
 ///         reads contracts/*.sol and never looks in here, so nothing in this
@@ -117,6 +118,26 @@ contract MockChip {
         uint256 acc;
         for (uint256 i = 0; i < 40; i++) acc = uint256(keccak256(abi.encode(acc, i)));
         lastIn = inValue + (acc & 0);
+    }
+}
+
+/// @notice A chip that reports whatever specification it is told to.
+/// @dev    The renderer reads its figures from the chip. This fixture is how
+///         a card can be checked against a generation that is not ST-8 without
+///         deploying a whole second gate array for it, and it is the only way
+///         to fail the renderer if it ever goes back to carrying the numbers
+///         as literals — the ST-8 card looks identical either way.
+contract MockSpecChip {
+    Spec private _spec;
+
+    constructor(uint16 gates, uint16 flops, uint8 dataBits) {
+        _spec.gates = gates;
+        _spec.flops = flops;
+        _spec.dataBits = dataBits;
+    }
+
+    function spec() external view returns (Spec memory) {
+        return _spec;
     }
 }
 

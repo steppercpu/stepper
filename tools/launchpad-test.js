@@ -77,7 +77,11 @@ function compileMocks() {
     }
     die("mock " + name + " not produced");
   };
-  return { MockVenue: pick("MockVenue"), MockToken: pick("MockToken") };
+  return {
+    MockVenue: pick("MockVenue"),
+    MockToken: pick("MockToken"),
+    MockSpecChip: pick("MockSpecChip"),
+  };
 }
 
 (async function main() {
@@ -287,6 +291,34 @@ function compileMocks() {
   check("it draws 160 gates", (svg.match(/rx="3"/g) || []).length, 160);
   check("the chip address is on the card",
     svg.indexOf(chip.slice(2, 6).toLowerCase()) > 0, "true");
+
+  /* The card, for a generation that is not ST-8.
+   *
+   * Every check above passes against a renderer that carries the ST-8 figures
+   * as literals, because for an ST-8 chip the two are indistinguishable. This
+   * is the one that separates them: a chip that reports 3,787 gates over a
+   * 16-bit datapath has to produce a card that says so. An earlier renderer
+   * would have minted it as an 8-bit processor with 2,161 gates, and nothing
+   * in the suite would have noticed. */
+  const specChipCtor = ethers.AbiCoder.defaultAbiCoder().encode(
+    ["uint16", "uint16", "uint8"], [3787, 311, 16]
+  );
+  const specChip = await deploy(mocks.MockSpecChip.bytecode, specChipCtor);
+  got = await send(renderer, rAbi.encodeFunctionData("render", [
+    7, specChip.toString(), token, CREATOR.toString(), 1757000000,
+  ]), 0n);
+  const uri16 = rAbi.decodeFunctionResult("render", got.ret)[0];
+  const card16 = JSON.parse(Buffer.from(uri16.split(",")[1], "base64").toString("utf8"));
+  const trait = (n) => (card16.attributes.find((a) => a.trait_type === n) || {}).value;
+
+  check("a 16-bit chip is not called ST-8", trait("Generation"), "ST-16");
+  check("its gate count is the chip's own", trait("NAND gates"), 3787);
+  check("and its flip-flop count", trait("Flip-flops"), 311);
+  check("the description says 16-bit",
+    card16.description.indexOf("A real 16-bit processor") === 0, "true");
+  const svg16 = Buffer.from(card16.image.split(",")[1], "base64").toString("utf8");
+  check("the die is labelled for its generation",
+    svg16.indexOf("ST-16 &#183; 3787 NAND") > 0, "true");
 
   const outDir = path.join(ROOT, "contracts", "out");
   fs.writeFileSync(path.join(outDir, "card-preview.svg"), svg);
