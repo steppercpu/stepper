@@ -313,7 +313,7 @@ not, nothing is written and the old netlist stands.
 | `ST8GateArray.sol` and the packing check | 11,216 B of the 24,576 B ceiling |
 | Compiled and proved in a real EVM | **done**, both generations |
 | The token, on Robinhood Chain 4663 | **live.** `0xffC3776650cD2c9641cE72838f85c0a535CC440B` |
-| The processor, deployed on chain | **not yet.** `config.js` holds `null` for it, and the interface says so |
+| The processor, deployed on chain | **live.** Chip #1 at `0x88d965bccc9265eac8022524723cb1eb13d6960e`, four cycles paid for |
 | Gas figures | measured by `npm run evm`, never estimated |
 
 > A button that pretends to work is worse than a button that says it does not.

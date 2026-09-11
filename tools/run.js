@@ -28,102 +28,12 @@ const ROOT = path.join(__dirname, "..");
 
 /* ------------------------------------------------------------- the netlist */
 
-/**
- * st8-data.js is written for a browser, so it assigns to `window`. Handing it
- * an object called window is the whole of the port.
- *
- * Two places it can be, because this file runs in two: in the repository it
- * sits under public/, and in the published package it sits beside this file.
- * Looking in both is cheaper than keeping two runners that could disagree.
- */
-function loadNetlist() {
-  const places = [
-    path.join(ROOT, "public/scripts/st8-data.js"),
-    path.join(__dirname, "st8-data.js"),
-  ];
-  const file = places.find((p) => fs.existsSync(p));
-  if (!file) {
-    die("st8-data.js is missing. Run `npm run silicon` first.");
-  }
-  const win = {};
-  new Function("window", fs.readFileSync(file, "utf8"))(win);
-  return win.ST8_DATA;
-}
-
-/* ------------------------------------------------------------- the machine
- *
- * Identical in behaviour to public/scripts/machine.js: drive the inputs,
- * evaluate every gate in the order the topological sort fixed, then latch
- * every flip-flop at once. Kept as a separate copy on purpose: if the two
- * ever disagree, one of them is wrong, and `npm run silicon` checks them
- * against a third independent model on every build.
- */
-
-function Machine(D, rom) {
-  this.D = D;
-  this.rom = rom;
-  this.v = new Uint8Array(D.nets);
-  this.next = new Uint8Array(D.flopCount);
-  this.ram = new Uint8Array(256);
-  this.inPort = 0;
-  this.cycle = 0;
-  this.switched = 0;
-  this.v[D.one] = 1;
-}
-
-Machine.prototype.flop = function (i) { return this.v[this.D.flops[2 * i + 1]]; };
-Machine.prototype.field = function (bits) {
-  let n = 0;
-  for (let i = 0; i < bits.length; i++) n |= this.flop(bits[i]) << i;
-  return n;
-};
-Machine.prototype.pc = function () { return this.field(this.D.pc); };
-Machine.prototype.out = function () { return this.field(this.D.out); };
-Machine.prototype.reg = function (r) { return this.field(this.D.regs[r]); };
-Machine.prototype.carry = function () { return this.flop(this.D.cf); };
-Machine.prototype.zero = function () { return this.flop(this.D.zf); };
-Machine.prototype.halted = function () { return this.flop(this.D.halt) === 1; };
-
-Machine.prototype.step = function () {
-  const D = this.D, v = this.v;
-  const word = this.rom[this.pc()] || 0;
-  let i;
-
-  for (i = 0; i < 25; i++) v[D.instr[i]] = (word >> i) & 1;
-  for (i = 0; i < 8; i++) v[D.inPort[i]] = (this.inPort >> i) & 1;
-
-  // The address is the one latched on the previous edge, which is exactly why
-  // a load costs two honest cycles.
-  const addr = this.field(D.ramAddr);
-  const rdata = this.ram[addr];
-  for (i = 0; i < 8; i++) v[D.ramRdata[i]] = (rdata >> i) & 1;
-
-  const g = D.gates;
-  let flipped = 0;
-  for (let j = 0; j < g.length; j += 3) {
-    const y = g[j + 2];
-    const val = 1 - (v[g[j]] & v[g[j + 1]]);
-    if (v[y] !== val) { v[y] = val; flipped++; }
-  }
-  this.switched = flipped;
-
-  const f = D.flops, nx = this.next;
-  for (i = 0; i < D.flopCount; i++) nx[i] = v[f[2 * i]];
-  for (i = 0; i < D.flopCount; i++) v[f[2 * i + 1]] = nx[i];
-
-  if (this.flop(D.ramWe) === 1) {
-    this.ram[this.field(D.ramAddr)] = this.field(D.ramWdata);
-  }
-
-  this.cycle++;
-  return word;
-};
-
-/* ----------------------------------------------------------- the assembler
- *
- * The node assembler already exists for the build. Reusing it here means the
- * terminal and the browser workbench cannot accept different source.
- */
+/* The processor itself lives in netlist/machine.js, because the published
+   CLI and the SDK need the same one and a second copy would be a second
+   processor. This file is what puts it on a terminal. */
+var machine = require("./netlist/machine.js");
+var Machine = machine.Machine;
+var loadNetlist = machine.loadNetlist;
 
 function assemble(source) {
   return require("./netlist/asm.js").assemble(source);
@@ -167,11 +77,64 @@ const HELP = `
     -c, --cycles <n>     how many clock edges to take          (default 40)
     -q, --quiet          only the final state
 
+  ${CALLED} verify <address> [--rpc <url>]
+
+    Replay a chip's entire history and check the chain agrees with it.
+
   Every cycle printed is the shipped netlist evaluated gate by gate. The same
   table runs in the browser and the same table goes into the contract.
 `;
 
+/**
+ * Replay a chip and say whether the chain agrees.
+ *
+ * The whole of the argument this project makes, in one command. A chip is
+ * deterministic and its inputs are public, so anybody can recompute its
+ * history from the ROM and the logs and compare the answer with what the
+ * contract says about itself. This does that, on the reader's machine, using
+ * the netlist in this package rather than anything we serve.
+ */
+async function verifyChip(address, rpcUrl) {
+  const { verify } = require("./chain/verify.js");
+
+  process.stdout.write("\n  replaying " + address + "\n");
+  const r = await verify(address, rpcUrl ? { rpc: rpcUrl } : undefined);
+
+  const n = r.cyclesReplayed.toLocaleString();
+  if (r.ok) {
+    process.stdout.write(
+      "\n  " + n + " cycles replayed from " + r.events.toLocaleString() + " logs" +
+      "\n  every logged output matched, cycle by cycle" +
+      "\n  final state matches snapshot()" +
+      "\n\n  this chip's entire history is reproducible on " +
+      r.gates.toLocaleString() + " gates\n\n");
+    return 0;
+  }
+
+  process.stdout.write("\n  it does not check out:\n");
+  r.problems.forEach((p) => process.stdout.write("    " + p + "\n"));
+  process.stdout.write("\n");
+  return 1;
+}
+
 function main() {
+  /* One subcommand, taken before the flags, because it is a different job:
+     everything else here runs a program locally and this one reads a chain. */
+  if (process.argv[2] === "verify") {
+    const address = process.argv[3];
+    if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      die("verify needs a chip address: " + CALLED + " verify 0x…");
+    }
+    const at = process.argv.indexOf("--rpc");
+    verifyChip(address, at > 0 ? process.argv[at + 1] : null)
+      .then((code) => { process.exitCode = code; })
+      .catch((e) => {
+        process.stderr.write("\n  " + (e.message || e) + "\n\n");
+        process.exitCode = 1;
+      });
+    return;
+  }
+
   const o = parseArgs(process.argv.slice(2));
   if (o.help) { process.stdout.write(HELP + "\n"); return; }
 

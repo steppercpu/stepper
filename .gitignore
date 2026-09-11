@@ -55,6 +55,8 @@ marketing/out/
 railway.json
 .railwayignore
 server.js
+tools/serve-check.js
+tools/csp-check.js
 docs/domain.md
 docs/api-keys.md
 
@@ -70,6 +72,11 @@ tools/render-posters.js
 tools/render-motion.js
 tools/render-video.js
 tools/render-stills.js
+tools/render-tour.js
+tools/score.js
+tools/render-audio.js
+tools/tour-wallet.js
+tools/rpc-relay.js
 tools/render-emoji.js
 tools/gif.js
 tools/mp4.js

@@ -1,0 +1,98 @@
+name: proof
+
+# Every claim this repository makes is a number somebody else can reproduce.
+# This runs the reproduction, on every push, so that "the proofs pass" becomes
+# a fact attached to a commit rather than something a person remembers doing on
+# a laptop once. Nothing here needs a network, a key or a chain: every suite
+# below runs against an in-memory EVM or against the netlist itself.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # build-netlist.js refuses to write st8-data.js at all unless the
+      # exhaustive 1,052,672-vector ALU sweep, the cycle-for-cycle differential
+      # run against an independent model, the same run through the shipped
+      # runner and the liveness check have every one of them passed. A green
+      # step here is those proofs having passed, not a file having been copied.
+      - name: The netlist, and the proofs that gate it
+        run: npm run silicon
+
+      # Same description in, same gates out, byte for byte. Without this a
+      # reader has no way to tell a change to the processor from a rebuild of
+      # it, and "check it yourself" stops meaning anything.
+      - name: The build is deterministic
+        run: |
+          cp public/scripts/st8-data.js "$RUNNER_TEMP/first.js"
+          npm run silicon
+          diff "$RUNNER_TEMP/first.js" public/scripts/st8-data.js
+
+      # The generated files in the tree are what the generators produce today.
+      # This failing means somebody edited a generated file by hand, which is
+      # how a page ends up calling a selector no contract answers to.
+      - name: The committed generated files are current
+        run: |
+          npm run t0
+          git diff --exit-code -- public/scripts/
+
+      # ST8GateArray.sol and ST16GateArray.sol are written from the netlist
+      # rather than by hand, and they are committed so a reader can see the
+      # assembly the chain actually runs. Regenerating them here catches the
+      # case where the gates moved and the Solidity in the tree still
+      # describes the old ones.
+      - name: The gate arrays match the netlist
+        run: |
+          npm run array
+          npm run array -- -w 16
+          git diff --exit-code -- contracts/
+
+      # contracts/out/ is generated and deliberately not committed, so every
+      # step below this one has nothing to run against until solc has been
+      # here. Leaving this out is how the first version of this workflow
+      # would have failed.
+      - name: Compile the contracts
+        run: npm run compile
+
+      - name: Both generations, inside a real EVM
+        run: npm run evm
+
+      - name: The launch contracts
+        run: npm run launchpad
+
+      - name: The fee router
+        run: npm run router
+
+      - name: The selectors and event topics
+        run: npm run abi
+
+      - name: The strategy desk
+        run: npm run strategy
+
+      # The packages are built from the sources above and then put to the proof
+      # as packages. Testing the ingredients says nothing about whether the box
+      # was packed correctly, and the box is what people install.
+      - name: The published packages
+        run: |
+          npm run cli
+          npm run sdk
+          npm run sdk-test

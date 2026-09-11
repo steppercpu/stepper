@@ -38,7 +38,25 @@ window.CONFIG = (function () {
     mainnet: {
       chainId: 4663,
       chainIdHex: "0x1237",
+      // The chain, named for anyone who wants to reach it themselves, and
+      // handed to a wallet when it is asked to add this network.
       rpc: "https://rpc.mainnet.chain.robinhood.com",
+
+      // Where THIS PAGE reads from, which is not the same thing.
+      //
+      // A browser asking the address above directly is a browser that depends
+      // on its resolver telling the truth, and at least one large Indonesian
+      // ISP does not: it hijacks that hostname and answers with a block page,
+      // even for lookups aimed at 8.8.8.8. Visitors on those networks saw
+      // "NetworkError when attempting to fetch resource" and a table claiming
+      // no chip had been minted, which was false.
+      //
+      // So reads go to this origin and this origin asks the chain. It is one
+      // more hop and one more thing that can be down, against a page that
+      // could not be read at all by a large number of people. The endpoint
+      // above is still the truth and still in this file; nothing here asks
+      // anyone to take our copy of the chain on faith.
+      read: "/rpc",
       explorer: "https://robinhoodchain.blockscout.com",
       nativeSymbol: "ETH",
 
@@ -47,7 +65,15 @@ window.CONFIG = (function () {
       // chip that ever exists can point at it. chip is Chip: ROM, RAM, the
       // state word, and a step() open to anyone.
       gateArray: "0xeB549a6c80698d3e33eA2F9ffEF2555aB918c36F",
-      chip: null,
+
+      // Chip #1, minted through the factory below on 10 September 2026 in
+      // block 59,386,859. It carries the echo program: the byte a sponsor
+      // pays with goes to the output port, for ever, so the port is the last
+      // sponsor's signature. Four cycles have been paid for so far, and
+      // `npx stepper-cli verify 0x88d965bc…` replays all four off the chain
+      // and finds they match.
+      chip: "0x88d965bccc9265eac8022524723cb1eb13d6960e",
+      chipToken: "0x847ce1e7505b4323ca6c06caee97d87aa8c481ca",
       // ---- R1: the launchpad, not needed for T-0 ------------------------
       factory: "0xf209De11d54CF0967496D8eD1C79A47242eF3437",   // ERC-721 + mint + per-chip tokens
       renderer: "0x371e9803432550b052da01Cb9fd8F0Fed036d83e",  // draws the NFT card on-chain
@@ -62,8 +88,8 @@ window.CONFIG = (function () {
       // The project token, live. Read off this chain before it was written
       // here: Stepper CPU / STEP, eighteen decimals, a total supply of
       // 1,000,000,000, and an address whose EIP-55 checksum verifies. The
-      // token pays for the clock; it is not the machine, and the two fields
-      // above are still null because the machine is not deployed yet.
+      // token pays for the clock; it is not the machine, which is the chip
+      // above and has its own token of its own.
       token: "0xffC3776650cD2c9641cE72838f85c0a535CC440B",
       market: "https://www.ponsfamily.com/launchpad/0xffC3776650cD2c9641cE72838f85c0a535CC440B",
 

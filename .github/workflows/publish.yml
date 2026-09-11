@@ -1,0 +1,132 @@
+name: publish
+
+# Publishing is a decision rather than a build step, so this runs when a person
+# asks for it and never on a push. The build scripts say the same thing and
+# refuse to publish for exactly this reason.
+#
+# There is no npm token in this repository, in its secrets, or on anybody's
+# laptop. Publishing uses npm trusted publishing: GitHub mints a credential
+# that is scoped to this one workflow run and expires in minutes, and npm
+# accepts it because the package has been told to trust this repository and
+# this filename. That matters more here than it does for most packages —
+# `npx stepper-cli` runs on other people's machines, which makes a long-lived
+# publish token the highest-value thing an attacker could take from us. Now
+# there is nothing to take.
+#
+# It also produces the receipt: npm records a provenance attestation tying the
+# tarball to the commit and the workflow that built it, so anybody can check
+# that what they installed was built from the source they read. For a project
+# whose whole argument is that its claims can be verified, publishing any other
+# way would be inconsistent.
+#
+# ONE-TIME SETUP, on npmjs.com, for each package:
+#   Settings → Trusted publishers → GitHub Actions
+#     Organization or user   steppercpu
+#     Repository             stepper
+#     Workflow filename      publish.yml
+#     Environment            (leave empty)
+#   Then revoke every classic publish token the account holds.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Which package to publish
+        required: true
+        type: choice
+        options:
+          - cli
+          - sdk
+          - both
+
+permissions:
+  contents: read
+  # The OIDC credential npm exchanges for publish rights. Without this the
+  # publish falls back to looking for a token, finds none, and stops.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs a recent npm; the one bundled with Node 20 is
+      # older than the feature.
+      - name: An npm that knows about trusted publishing
+        run: npm install -g npm@latest
+
+      - run: npm ci
+
+      # The whole battery again, here, on the exact commit being published.
+      # A package that ships without its proofs having run is a package whose
+      # claims are unsupported at the moment it matters most.
+      - name: The netlist, and the proofs that gate it
+        run: npm run silicon
+
+      - name: The build is deterministic
+        run: |
+          cp public/scripts/st8-data.js "$RUNNER_TEMP/first.js"
+          npm run silicon
+          diff "$RUNNER_TEMP/first.js" public/scripts/st8-data.js
+
+      - name: The committed generated files are current
+        run: |
+          npm run t0
+          git diff --exit-code -- public/scripts/
+
+      # ST8GateArray.sol and ST16GateArray.sol are written from the netlist
+      # rather than by hand, and they are committed so a reader can see the
+      # assembly the chain actually runs. Regenerating them here catches the
+      # case where the gates moved and the Solidity in the tree still
+      # describes the old ones.
+      - name: The gate arrays match the netlist
+        run: |
+          npm run array
+          npm run array -- -w 16
+          git diff --exit-code -- contracts/
+
+      # contracts/out/ is generated and deliberately not committed, so every
+      # step below this one has nothing to run against until solc has been
+      # here. Leaving this out is how the first version of this workflow
+      # would have failed.
+      - name: Compile the contracts
+        run: npm run compile
+
+      - name: Both generations, inside a real EVM
+        run: npm run evm
+
+      - name: The launch contracts, the fee router and the selectors
+        run: |
+          npm run launchpad
+          npm run router
+          npm run abi
+
+      - name: Build both packages
+        run: |
+          npm run cli
+          npm run sdk
+
+      - name: The SDK, as a package
+        run: npm run sdk-test
+
+      # No NODE_AUTH_TOKEN on either of these. Provenance is generated
+      # automatically under trusted publishing, so there is no flag to pass
+      # and no way to forget it.
+      - name: Publish stepper-cli
+        if: inputs.package == 'cli' || inputs.package == 'both'
+        working-directory: cli
+        run: npm publish --access public
+
+      - name: Publish stepper-sdk
+        if: inputs.package == 'sdk' || inputs.package == 'both'
+        working-directory: sdk
+        run: npm publish --access public

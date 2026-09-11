@@ -44,6 +44,10 @@ var BIN = "stepper";
 var FILES = [
   ["tools/run.js", "lib/run.js"],
   ["tools/cli.js", "lib/cli.js"],
+  ["tools/chain/chain.js", "lib/chain/chain.js"],
+  ["tools/chain/verify.js", "lib/chain/verify.js"],
+  ["public/scripts/abi.js", "lib/abi.js"],
+  ["tools/netlist/machine.js", "lib/netlist/machine.js"],
   ["tools/netlist/asm.js", "lib/netlist/asm.js"],
   ["tools/netlist/st8.js", "lib/netlist/st8.js"],
   ["public/scripts/st8-data.js", "lib/st8-data.js"],

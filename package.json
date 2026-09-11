@@ -36,7 +36,15 @@
     "abi": "node tools/abi-test.js",
     "deploy-launchpad": "node tools/deploy-launchpad.js",
     "logo": "node tools/install-logo.js",
-    "emoji": "node tools/render-emoji.js"
+    "emoji": "node tools/render-emoji.js",
+    "serve-check": "node tools/serve-check.js && node tools/csp-check.js",
+    "csp-check": "node tools/csp-check.js",
+    "sdk": "node tools/build-sdk.js",
+    "sdk-test": "node tools/sdk-test.js",
+    "tour": "node tools/render-tour.js",
+    "relay": "node tools/rpc-relay.js",
+    "score": "node tools/score.js",
+    "audio": "node tools/render-audio.js"
   },
   "devDependencies": {
     "@ethereumjs/common": "^4.4.0",

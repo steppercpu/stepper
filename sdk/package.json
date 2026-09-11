@@ -1,0 +1,31 @@
+{
+  "name": "stepper-sdk",
+  "version": "0.1.0",
+  "description": "The STEPPER ST-8 processor as a library: 2,161 NAND gates, an assembler, and a verifier that replays a chip's whole on-chain history and checks it.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "keywords": [
+    "cpu",
+    "processor",
+    "netlist",
+    "nand",
+    "ethereum",
+    "evm",
+    "verify"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://steppercpu.tech",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steppercpu/stepper.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
