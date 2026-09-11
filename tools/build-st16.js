@@ -241,12 +241,28 @@ for (var cyc = 0; cyc < 5000 && !e4; cyc++) {
 if (e4) bad("differential on a random instruction stream", JSON.stringify(e4));
 else ok("differential: 5,000 cycles of random valid instructions, RAM included");
 
+/* ST-8 is this same description with W = 8. Building it here costs one more
+   pass and means the table cannot drift from the numbers the toolchain
+   ships: they are on the site and on every poster. The literal that sat
+   here had already gone stale. */
+function measure(width) {
+  var mb = new Builder();
+  var mm = st8.buildST8(mb, { width: width });
+  var mo = optimise({
+    gates: mb.gates, owner: mb.owner, n: mb.n, ZERO: mb.ZERO, ONE: mb.ONE,
+    primaries: [mb.ZERO, mb.ONE].concat(mm.instr, mm.inPort, mm.ramRdata, mb.flopQ),
+    roots: mb.flopD.slice(),
+  });
+  return { gates: mo.stats.end, flops: mb.flopQ.length };
+}
+var g8 = measure(8);
+
 console.log("\nGeneration comparison");
 console.log("=".repeat(62));
 console.log("  " + "".padEnd(26) + "ST-8".padStart(10) + "ST-16".padStart(10));
-console.log("  " + "NAND gates".padEnd(26) + "2,096".padStart(10) +
+console.log("  " + "NAND gates".padEnd(26) + g8.gates.toLocaleString().padStart(10) +
   s.end.toLocaleString().padStart(10));
-console.log("  " + "flip-flops".padEnd(26) + "167".padStart(10) +
+console.log("  " + "flip-flops".padEnd(26) + String(g8.flops).padStart(10) +
   String(D.flopCount).padStart(10));
 console.log("  " + "verification".padEnd(26) + "exhaustive".padStart(10) + "sampled".padStart(10));
 
