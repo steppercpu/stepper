@@ -320,6 +320,54 @@ function compileMocks() {
   check("the die is labelled for its generation",
     svg16.indexOf("ST-16 &#183; 3787 NAND") > 0, "true");
 
+  /* ------------------------- the whole ST-16 path, end to end
+   *
+   * `npm run evm` proves ST-16 at the gate level and `npm run st16` proves it
+   * against a model, but nothing has ever run the factory and ST-16 together.
+   * That combination is what a second deployment would be, and it is worth
+   * knowing it works before any of it is paid for on a chain.
+   *
+   * No contract changes for it: ChipFactory already takes its gate array in
+   * the constructor, so a second generation is a second deployment and not a
+   * second factory to write.
+   *
+   * The same ROM serves both. An instruction word is 25 bits regardless of
+   * datapath width — [24:20] op, [19:16] rd, [15:12] rs, [11:0] imm — so the
+   * ledger program assembled for ST-8 is a valid ST-16 program. */
+
+  const array16 = await deploy(artifact("ST16GateArray").bytecode);
+  const ctor16 = ethers.AbiCoder.defaultAbiCoder().encode(
+    ["address", "address", "address"],
+    [array16.toString(), venue.toString(), renderer.toString()]
+  );
+  const factory16 = await deploy(factoryArt.bytecode, ctor16);
+
+  r = await send(factory16, abi.encodeFunctionData("launch",
+    [rom, params(ethers.ZeroAddress, 200), 1, ethers.ZeroAddress]), FEE * 4n);
+  check("a 16-bit chip launches through the same factory code", r.error, "null");
+
+  const d16 = abi.decodeFunctionResult("launch", r.ret);
+  const chip16 = Address.fromString(d16[1]);
+
+  got = await send(chip16, chipAbi.encodeFunctionData("spec"), 0n);
+  const s16 = chipAbi.decodeFunctionResult("spec", got.ret)[0];
+  check("it reports a 16-bit datapath", s16.dataBits.toString(), "16");
+  check("and 3,787 gates", s16.gates.toString(), "3787");
+
+  got = await send(chip16, chipAbi.encodeFunctionData("step", [4242]), 0n);
+  check("it takes a clock edge on a value no 8-bit chip could hold",
+    got.error, "null");
+  got = await send(chip16, chipAbi.encodeFunctionData("snapshot"), 0n);
+  check("and its cycle counter moved",
+    chipAbi.decodeFunctionResult("snapshot", got.ret)[0].toString(), "1");
+
+  got = await send(factory16, abi.encodeFunctionData("tokenURI", [1]), 0n);
+  const card = JSON.parse(Buffer.from(
+    abi.decodeFunctionResult("tokenURI", got.ret)[0].split(",")[1], "base64"
+  ).toString("utf8"));
+  check("and its card describes the processor it actually is",
+    (card.attributes.find((a) => a.trait_type === "Generation") || {}).value, "ST-16");
+
   const outDir = path.join(ROOT, "contracts", "out");
   fs.writeFileSync(path.join(outDir, "card-preview.svg"), svg);
   console.log("");
