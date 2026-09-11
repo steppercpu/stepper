@@ -281,6 +281,24 @@ function compileMocks() {
   const uri = abi.decodeFunctionResult("tokenURI", got.ret)[0];
   check("tokenURI is a data URI", uri.startsWith("data:application/json;base64,"), "true");
 
+  /* Can anybody actually call it?
+   *
+   * Every check in this file runs with GAS set to 200,000,000, which is about
+   * seven times an Ethereum block and far more than any eth_call will allow.
+   * That limit exists so a test never fails for an uninteresting reason, and
+   * it had the effect of hiding the most interesting failure available: a card
+   * that is correct and too expensive to read.
+   *
+   * A wallet, a marketplace and an explorer all reach tokenURI through
+   * eth_call, and node operators cap that. 30,000,000 is a generous reading of
+   * what is safe to assume. Past it the card is not slow, it is invisible. */
+  const URI_GAS_CEILING = 30000000n;
+  check("and cheap enough for an eth_call to return it",
+    got.gas <= URI_GAS_CEILING,
+    () => got.gas <= URI_GAS_CEILING);
+  console.log("        tokenURI costs " + got.gas.toLocaleString() +
+    " gas for " + uri.length.toLocaleString() + " characters");
+
   const json = JSON.parse(Buffer.from(uri.split(",")[1], "base64").toString("utf8"));
   check("the card names the chip", json.name, "STEPPER Chip #1");
   check("and carries an SVG, not a link",

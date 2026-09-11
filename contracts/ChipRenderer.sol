@@ -99,16 +99,22 @@ contract ChipRenderer {
 
     /// @dev A faint rule every forty pixels, so the die sits on something.
     function _grid() private pure returns (string memory) {
-        string memory out = "";
+        bytes memory buf = new bytes(14 * 140);
+        uint256 at = 0;
         for (uint256 i = 1; i < 15; i++) {
             string memory p = _num(i * 40);
-            out = string.concat(
-                out,
-                '<rect x="', p, '" y="0" width="1" height="600" fill="', COLD, '"/>',
-                '<rect x="0" y="', p, '" width="600" height="1" fill="', COLD, '"/>'
-            );
+            at = _put(buf, at, '<rect x="');
+            at = _put(buf, at, p);
+            at = _put(buf, at, '" y="0" width="1" height="600" fill="');
+            at = _put(buf, at, COLD);
+            at = _put(buf, at, '"/>');
+            at = _put(buf, at, '<rect x="0" y="');
+            at = _put(buf, at, p);
+            at = _put(buf, at, '" width="600" height="1" fill="');
+            at = _put(buf, at, COLD);
+            at = _put(buf, at, '"/>');
         }
-        return out;
+        return _trim(buf, at);
     }
 
     /// @dev Sixteen by ten cells, lit from the twenty bytes of the address.
@@ -119,20 +125,49 @@ contract ChipRenderer {
     ///      address, and the same chip always draws the same card.
     function _lattice(address chip) private pure returns (string memory) {
         uint256 bits = uint256(uint160(chip));
-        string memory out = "";
+        /* 72 bytes is the longest a cell can be: three digits of x, three of
+           y, and a seven-character colour. Sized once, trimmed at the end. */
+        bytes memory buf = new bytes(160 * 72);
+        uint256 p = 0;
         for (uint256 r = 0; r < 10; r++) {
             for (uint256 c = 0; c < 16; c++) {
                 uint256 i = r * 16 + c;
                 uint256 v = (bits >> (i % 160)) & 7;
                 string memory fill = v > 6 ? LIT : v > 4 ? GREEN : COLD;
-                out = string.concat(
-                    out,
-                    '<rect x="', _num(c * 32), '" y="', _num(r * 32),
-                    '" width="24" height="24" rx="3" fill="', fill, '"/>'
-                );
+                p = _put(buf, p, '<rect x="');
+                p = _put(buf, p, _num(c * 32));
+                p = _put(buf, p, '" y="');
+                p = _put(buf, p, _num(r * 32));
+                p = _put(buf, p, '" width="24" height="24" rx="3" fill="');
+                p = _put(buf, p, fill);
+                p = _put(buf, p, '"/>');
             }
         }
-        return out;
+        return _trim(buf, p);
+    }
+
+    /* --------------------------------------------------------- appending */
+
+    /* `out = string.concat(out, piece)` allocates a fresh copy of everything
+       written so far, so building the lattice a cell at a time copied it 160
+       times and the finished card cost 67,533,668 gas to produce. That is
+       about twice an Ethereum block and well past what a node will let an
+       `eth_call` spend, which meant every wallet, marketplace and explorer
+       asking for the card got an error rather than a picture.
+       Nothing about the card was wrong. Nobody could afford to look at it.
+       These two write once instead. */
+    function _put(bytes memory buf, uint256 p, string memory s)
+        private pure returns (uint256)
+    {
+        bytes memory b = bytes(s);
+        for (uint256 i = 0; i < b.length; i++) buf[p + i] = b[i];
+        return p + b.length;
+    }
+
+    function _trim(bytes memory buf, uint256 n) private pure returns (string memory) {
+        bytes memory out = new bytes(n);
+        for (uint256 i = 0; i < n; i++) out[i] = buf[i];
+        return string(out);
     }
 
     /* -------------------------------------------------------------- text */
@@ -178,6 +213,10 @@ contract ChipRenderer {
     ///      contract reaches a wallet without a server in between.
     function _b64(bytes memory data) private pure returns (string memory) {
         if (data.length == 0) return "";
+        /* One copy of the alphabet. Indexing the constant directly copies
+           all 64 bytes out of code on every lookup, and there are tens of
+           thousands of lookups in one card. */
+        bytes memory abc = B64;
         uint256 len = 4 * ((data.length + 2) / 3);
         bytes memory out = new bytes(len);
         uint256 j = 0;
@@ -186,24 +225,24 @@ contract ChipRenderer {
             uint256 n = (uint256(uint8(data[i])) << 16) |
                 (uint256(uint8(data[i + 1])) << 8) |
                 uint256(uint8(data[i + 2]));
-            out[j++] = B64[(n >> 18) & 63];
-            out[j++] = B64[(n >> 12) & 63];
-            out[j++] = B64[(n >> 6) & 63];
-            out[j++] = B64[n & 63];
+            out[j++] = abc[(n >> 18) & 63];
+            out[j++] = abc[(n >> 12) & 63];
+            out[j++] = abc[(n >> 6) & 63];
+            out[j++] = abc[n & 63];
             i += 3;
         }
         uint256 rest = data.length - i;
         if (rest == 1) {
             uint256 n = uint256(uint8(data[i])) << 16;
-            out[j++] = B64[(n >> 18) & 63];
-            out[j++] = B64[(n >> 12) & 63];
+            out[j++] = abc[(n >> 18) & 63];
+            out[j++] = abc[(n >> 12) & 63];
             out[j++] = "=";
             out[j++] = "=";
         } else if (rest == 2) {
             uint256 n = (uint256(uint8(data[i])) << 16) | (uint256(uint8(data[i + 1])) << 8);
-            out[j++] = B64[(n >> 18) & 63];
-            out[j++] = B64[(n >> 12) & 63];
-            out[j++] = B64[(n >> 6) & 63];
+            out[j++] = abc[(n >> 18) & 63];
+            out[j++] = abc[(n >> 12) & 63];
+            out[j++] = abc[(n >> 6) & 63];
             out[j++] = "=";
         }
         return string(out);
