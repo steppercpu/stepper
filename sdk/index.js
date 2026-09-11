@@ -43,6 +43,13 @@ function assemble(source) {
  * @returns {{cycles: number, halted: boolean, pc, out, carry, zero, registers, switched}}
  */
 function run(rom, opts) {
+  if (!Array.isArray(rom)) {
+    throw new TypeError(
+      rom && Array.isArray(rom.rom)
+        ? "run() takes the rom, not the whole result: run(assemble(src).rom)"
+        : "run() takes a rom, an array of words from assemble().rom"
+    );
+  }
   var o = opts || {};
   var D = machine.loadNetlist();
   var m = new machine.Machine(D, rom);
