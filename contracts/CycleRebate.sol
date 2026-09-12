@@ -12,11 +12,6 @@ interface IChip {
         returns (uint256 cycle, uint256 pc, uint256 outPort, bool carry, bool zero, bool halted);
 }
 
-/// @notice The factory, so a rebate can only be paid for a chip it made.
-interface IChipRegistry {
-    function idOfChip(address chip) external view returns (uint256);
-}
-
 /// @notice The reserve token.
 interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);
@@ -24,113 +19,125 @@ interface IERC20 {
 }
 
 /// @title  CycleRebate
-/// @notice Buys a chip its next clock edge on your behalf, and pays you for
+/// @notice Buys one chip its next clock edge on your behalf, and pays you for
 ///         having asked.
 ///
 /// @dev    A chip advances when somebody pays for the next edge, and nothing
 ///         about it earns: `step()` is not payable, the chip holds no balance,
-///         and there is no withdrawal path anywhere in it. A processor with no
+///         and there is no withdrawal path in it. A processor with no
 ///         oscillator needs somebody to want the next edge enough to buy it.
 ///         This is a reserve that makes wanting it cheaper.
 ///
 ///         **What it pays for is work, never holding.** The only way to be
-///         paid by this contract is to make a chip take a cycle. Holding the
-///         token does nothing here, and there is no function that would let it.
-///         That distinction is the whole design and not a formality: a reserve
-///         that pays for work is an incentive; a reserve that pays for holding
-///         is something else with a different regulator.
+///         paid by this contract is to make the chip take a cycle. Holding the
+///         token does nothing here and there is no function that would let it.
+///         That distinction is the design and not a formality: a reserve that
+///         pays for work is an incentive; a reserve that pays for holding is
+///         something else with a different regulator.
 ///
-///         **Three properties fixed at construction, and none of them movable.**
-///         The token, the registry and the rate are immutable. There is no
-///         owner, no pause, no setter and no withdrawal function: once a token
-///         is in here the only way out is through `fuel()`, to somebody who
-///         advanced a chip. Nobody can empty it, including whoever deploys it.
+///         **One chip, fixed at construction.** Not a registry, not a list,
+///         not a set somebody can add to. An earlier draft paid for any chip a
+///         factory had minted, which meant anybody could launch their own for
+///         the price of a launch fee and drain the reserve into it. Naming one
+///         address removes that attack rather than pricing around it.
+///
+///         **Everything else is immutable too.** The token, the chip and the
+///         rate are set once. There is no owner, no pause, no setter and
+///         nothing payable, so once a token is in here the only way out is
+///         through `fuel()`, to somebody who advanced the chip. Nobody can
+///         empty it, including whoever deploys it.
+///
+///         **Refilling is a transfer.** There is no deposit function because
+///         none is needed: the reserve is this contract's balance. Anybody can
+///         top it up by sending the token here, and nobody can take it back.
 ///
 ///         **The cost, stated rather than buried.** The chip records its
 ///         sponsor as `msg.sender`, so an edge bought through this contract
 ///         records *this contract* in the chip's own log, not you. A cycle you
-///         want your address against is a cycle you should buy from the chip
-///         directly, and that path is open to everyone and always will be.
-///         This one trades that line in the log for a rebate. Which is worth
-///         more is not ours to decide for anybody.
+///         want your address against is one to buy from the chip directly, and
+///         that path is open to everyone and always will be. This one trades
+///         that line in the log for a payment.
 contract CycleRebate {
     /// @notice The token paid out.
     IERC20 public immutable TOKEN;
-    /// @notice The factory whose chips are eligible.
-    IChipRegistry public immutable REGISTRY;
+    /// @notice The one chip this reserve will advance.
+    IChip public immutable CHIP;
     /// @notice Paid per clock edge, fixed for the life of this contract.
     uint256 public immutable RATE;
 
     /// @notice Edges bought through this contract, in total.
     uint256 public edges;
-    /// @notice Paid out, in total.
+    /// @notice Taken out of the reserve, in total.
     uint256 public paid;
 
-    /// @param caller  Who asked for the edge and who was paid for it.
-    /// @param chip    The chip that advanced.
-    /// @param cycle   The edge number, counting from one.
-    /// @param amount  What was paid. Zero when the reserve is empty.
-    event Fuelled(
-        address indexed caller,
-        address indexed chip,
-        uint256 indexed cycle,
-        uint256 amount
-    );
+    /// @dev A transient slot, so the guard costs nothing beyond the
+    ///      transaction it protects. Same mechanism the chip uses for the same
+    ///      reason.
+    bytes32 private constant LOCK = keccak256("stepper.rebate.lock");
 
-    /// @notice The address given is not a chip this registry made.
-    error NotAChip();
-    /// @notice The token refused the transfer.
+    /// @param caller  Who asked for the edge and who was paid for it.
+    /// @param cycle   The edge number, counting from one.
+    /// @param amount  What left the reserve. Zero when it cannot cover a rate.
+    event Fuelled(address indexed caller, uint256 indexed cycle, uint256 amount);
+
+    /// @notice Two calls tried to occupy the same transaction.
+    error Reentered();
+    /// @notice The token refused the transfer, or lied about it.
     error TransferFailed();
     /// @notice A zero address or a zero rate would make this contract a
     ///         decoration, and there is no setter to correct it afterwards.
     error BadConfiguration();
 
-    constructor(IERC20 token, IChipRegistry registry, uint256 rate) {
+    constructor(IERC20 token, IChip chip, uint256 rate) {
         if (address(token) == address(0)) revert BadConfiguration();
-        if (address(registry) == address(0)) revert BadConfiguration();
+        if (address(chip) == address(0)) revert BadConfiguration();
         if (rate == 0) revert BadConfiguration();
         TOKEN = token;
-        REGISTRY = registry;
+        CHIP = chip;
         RATE = rate;
     }
 
-    /// @notice Advance a chip by one clock edge and take the rebate.
-    /// @param  chip     The chip to advance. It must be one the registry made.
-    /// @param  inValue  The byte the program reads with `in`.
-    /// @return amount   What was paid. Zero if the reserve cannot cover it.
+    /// @notice Advance the chip by one clock edge and take the rebate.
+    /// @param  inValue The byte the program reads with `in`.
+    /// @return amount  What left the reserve. Zero if it cannot cover a rate.
     ///
-    /// @dev The registry check is not a formality. Without it, anybody could
-    ///      deploy a contract whose `step()` does nothing, call this against
-    ///      it for the price of the calldata, and take the reserve apart in an
-    ///      afternoon. `idOfChip` answers from the factory's own records, which
-    ///      cannot be written by anyone but the factory.
-    ///
-    ///      **A short reserve never blocks a cycle.** If the balance cannot
+    /// @dev **A short reserve never blocks a cycle.** If the balance cannot
     ///      cover the rate the edge is still taken and the rebate is zero. A
-    ///      contract that reverted here would be a contract that stopped chips
+    ///      contract that reverted there would be one that stopped a chip
     ///      running because it had run out of money, which is the opposite of
     ///      the point.
-    function fuel(address chip, uint256 inValue) external returns (uint256 amount) {
-        if (REGISTRY.idOfChip(chip) == 0) revert NotAChip();
-
-        IChip(chip).step(inValue);
-        (uint256 cycle, , , , , ) = IChip(chip).snapshot();
-
-        /* Counted before the transfer, so a token that calls back sees a state
-           that is already settled. There is nothing here worth re-entering
-           for -- the rebate is bounded by the balance either way -- but the
-           ordering costs nothing and removes the question. */
-        unchecked { edges += 1; }
-
-        uint256 balance = TOKEN.balanceOf(address(this));
-        amount = balance >= RATE ? RATE : 0;
-
-        if (amount != 0) {
-            unchecked { paid += amount; }
-            if (!TOKEN.transfer(msg.sender, amount)) revert TransferFailed();
+    ///
+    ///      **The amount recorded is what actually left.** A token may take a
+    ///      fee on transfer, and a counter that recorded the intention rather
+    ///      than the movement would drift from the balance for ever. This
+    ///      measures.
+    function fuel(uint256 inValue) external returns (uint256 amount) {
+        bytes32 lock = LOCK;
+        assembly {
+            if tload(lock) {
+                /* Reentered() */
+                mstore(0x00, 0xb5dfd9e5)
+                revert(0x1c, 0x04)
+            }
+            tstore(lock, 1)
         }
 
-        emit Fuelled(msg.sender, chip, cycle, amount);
+        CHIP.step(inValue);
+        (uint256 cycle, , , , , ) = CHIP.snapshot();
+
+        unchecked { edges += 1; }
+
+        uint256 held = TOKEN.balanceOf(address(this));
+        if (held >= RATE) {
+            _send(msg.sender, RATE);
+            uint256 left = TOKEN.balanceOf(address(this));
+            amount = held - left;
+            unchecked { paid += amount; }
+        }
+
+        emit Fuelled(msg.sender, cycle, amount);
+
+        assembly { tstore(lock, 0) }
     }
 
     /// @notice How many more edges the reserve can pay for.
@@ -139,5 +146,16 @@ contract CycleRebate {
     ///         `fuel()` through, it just pays nothing.
     function edgesRemaining() external view returns (uint256) {
         return TOKEN.balanceOf(address(this)) / RATE;
+    }
+
+    /// @dev A transfer that survives the tokens that do not follow the
+    ///      standard: some return nothing at all, and some return false rather
+    ///      than reverting. Both are treated as what they are.
+    function _send(address to, uint256 value) private {
+        (bool ok, bytes memory ret) = address(TOKEN).call(
+            abi.encodeWithSelector(IERC20.transfer.selector, to, value)
+        );
+        if (!ok) revert TransferFailed();
+        if (ret.length != 0 && !abi.decode(ret, (bool))) revert TransferFailed();
     }
 }

@@ -388,18 +388,20 @@ function compileMocks() {
 
   /* ----------------------- the rebate, against a chip the factory made
    *
-   * npm run rebate proves CycleRebate's behaviour against a mock chip and a
-   * mock registry, which is the right place for the awkward cases. What it
-   * cannot prove is that the real factory answers idOfChip the way the rebate
-   * expects, or that a real chip's step() and snapshot() have the shapes it
-   * calls through. Those are three interfaces meeting, and they meet here. */
+   * npm run rebate proves CycleRebate's behaviour against mocks, which is the
+   * right place for the awkward cases: a token that calls back, a token that
+   * takes a fee, a token that returns nothing.
+   *
+   * What a mock cannot prove is that a chip the real factory built answers
+   * `step` and `snapshot` the way the rebate calls through them. Three
+   * interfaces meet here and nowhere else. */
 
   const rebateArt = artifact("CycleRebate");
   const fuelToken = await deploy(mocks.MockToken.bytecode);
   const RATE = 1000n;
   const rebate = await deploy(rebateArt.bytecode, ethers.AbiCoder.defaultAbiCoder().encode(
     ["address", "address", "uint256"],
-    [fuelToken.toString(), factory.toString(), RATE.toString()]
+    [fuelToken.toString(), chip, RATE.toString()]
   ));
   const rbAbi = new ethers.Interface(rebateArt.abi);
 
@@ -408,7 +410,7 @@ function compileMocks() {
   got = await send(chipAddr, chipAbi.encodeFunctionData("snapshot"), 0n);
   const before = chipAbi.decodeFunctionResult("snapshot", got.ret)[0];
 
-  r = await send(rebate, rbAbi.encodeFunctionData("fuel", [chip, 7]), 0n, OTHER);
+  r = await send(rebate, rbAbi.encodeFunctionData("fuel", [7]), 0n, OTHER);
   check("a real chip can be fuelled through the rebate", r.error, "null");
 
   got = await send(chipAddr, chipAbi.encodeFunctionData("snapshot"), 0n);
@@ -420,10 +422,11 @@ function compileMocks() {
   check("whoever asked for the edge was paid",
     BigInt(bytesToHex(got.ret)).toString(), RATE.toString());
 
-  /* A chip this factory did not make is refused, and the factory is the one
-     saying so rather than a list somebody maintains. */
-  r = await send(rebate, rbAbi.encodeFunctionData("fuel", [renderer.toString(), 1]), 0n, OTHER);
-  check("something the factory never made is refused", r.error !== null, "true");
+  /* The chip is named at construction, so there is no argument to point
+     anywhere else and nothing to check beyond that there is not one. */
+  const fuelFn = rebateArt.abi.find((f) => f.type === "function" && f.name === "fuel");
+  check("and the rebate has no way to be aimed at another chip",
+    fuelFn.inputs.length, 1);
 
   const outDir = path.join(ROOT, "contracts", "out");
   fs.writeFileSync(path.join(outDir, "card-preview.svg"), svg);

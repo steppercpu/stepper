@@ -149,6 +149,64 @@ contract FreeStep {
     }
 }
 
+/// @notice A token that calls back into its spender while transferring.
+/// @dev    The attack a reentrancy guard exists for. Without one, a token like
+///         this re-enters before the reserve balance has moved, sees the old
+///         balance, and is paid twice for one clock edge.
+contract ReentrantToken {
+    mapping(address => uint256) public balanceOf;
+    address public target;
+    bool private inside;
+
+    function mint(address to, uint256 v) external { balanceOf[to] += v; }
+    function point(address t) external { target = t; }
+
+    function transfer(address to, uint256 v) external returns (bool) {
+        balanceOf[msg.sender] -= v;
+        balanceOf[to] += v;
+        if (target != address(0) && !inside) {
+            inside = true;
+            /* Ignore the outcome: the point is whether it succeeds, and the
+               test reads that from the balances rather than from here. */
+            (bool ok, ) = target.call(abi.encodeWithSignature("fuel(uint256)", uint256(1)));
+            ok;
+            inside = false;
+        }
+        return true;
+    }
+}
+
+/// @notice A token that keeps a share of every transfer.
+/// @dev    So the rebate's counters can be checked against what moved rather
+///         than against what was asked for.
+contract FeeToken {
+    mapping(address => uint256) public balanceOf;
+    uint256 public constant BPS = 200;
+
+    function mint(address to, uint256 v) external { balanceOf[to] += v; }
+
+    function transfer(address to, uint256 v) external returns (bool) {
+        uint256 fee = (v * BPS) / 10000;
+        balanceOf[msg.sender] -= v;
+        balanceOf[to] += v - fee;
+        return true;
+    }
+}
+
+/// @notice A token whose transfer returns nothing at all.
+/// @dev    Common enough to matter. A contract that insists on a bool would
+///         revert against it for ever.
+contract SilentToken {
+    mapping(address => uint256) public balanceOf;
+
+    function mint(address to, uint256 v) external { balanceOf[to] += v; }
+
+    function transfer(address to, uint256 v) external {
+        balanceOf[msg.sender] -= v;
+        balanceOf[to] += v;
+    }
+}
+
 /// @notice A registry that answers for whatever it has been told about.
 contract MockChipRegistry {
     mapping(address => uint256) public idOfChip;

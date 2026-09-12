@@ -383,6 +383,36 @@ for (var i = 0; i < 20000; i++) {
 if (halted) bad("ledger halted — the mainnet program must run forever");
 else ok("ledger — 20,000 cycles with random input, never halts");
 
+var dig = new ST8.Machine(data.programs.digest);
+var digFeed = stream(0x5eed16);
+var digHalted = false;
+var digSeen = {};
+for (var d = 0; d < 20000; d++) {
+  dig.inPort = digFeed();
+  dig.step();
+  if (dig.halted()) { digHalted = true; break; }
+  if (d > 16) digSeen[dig.out()] = 1;
+}
+if (digHalted) bad("digest halted — a chip carrying it could never be restarted");
+else ok("digest — 20,000 cycles with random input, never halts");
+
+/* The whole reason for rotating before folding. Without it the accumulator
+   is a sum, sums commute, and the same sponsors in a different order would
+   leave the machine in the same place. */
+function digestOf(bytes) {
+  var m = new ST8.Machine(data.programs.digest);
+  for (var k = 0; k < bytes.length; k++) { m.inPort = bytes[k]; m.step(); }
+  return m.out();
+}
+var fwd = digestOf([11, 22, 33, 44, 55, 66]);
+var rev = digestOf([66, 55, 44, 33, 22, 11]);
+if (fwd === rev) bad("digest ignores the order its bytes arrived in");
+else ok("digest — order matters: the same bytes reversed give " + fwd + " and " + rev + "");
+
+var digCount = Object.keys(digSeen).length;
+if (digCount < 200) bad("digest only reached " + digCount + " of 256 output values");
+else ok("digest — " + digCount + " of 256 output values reached");
+
 var test = new ST8.Machine(data.programs.selftest);
 var cyclesToHalt = 0;
 for (var j = 0; j < 5000; j++) {
