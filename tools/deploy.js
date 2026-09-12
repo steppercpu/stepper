@@ -87,12 +87,17 @@ function decodeWords(ret) {
  * The program chip #1 carries, taken from the netlist rather than retyped:
  * four bytes per twenty-five-bit word, trailing nops trimmed.
  */
-function chipRom() {
+function chipRom(which) {
   const win = {};
   const p = path.join(ROOT, "public", "scripts", "st8-data.js");
   if (!fs.existsSync(p)) die("public/scripts/st8-data.js is missing. Run `npm run silicon`.");
   new Function("window", fs.readFileSync(p, "utf8"))(win);
-  const words = win.ST8_DATA.programs.ledger.rom;
+  const named = win.ST8_DATA.programs[which || "ledger"];
+  if (!named) {
+    die("no program called '" + which + "'. The netlist ships: " +
+      Object.keys(win.ST8_DATA.programs).join(", "));
+  }
+  const words = named.rom;
   let n = 0;
   for (let i = 0; i < words.length; i++) if (words[i]) n = i + 1;
   let hex = "";
@@ -137,11 +142,14 @@ function writeAddresses(network, gateArray, chip) {
 }
 
 function parseArgs(argv) {
-  const o = { go: false, step: false, network: null, arrayOnly: false };
+  const o = { go: false, step: false, network: null, arrayOnly: false,
+              chipOnly: false, prog: "ledger" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--go") o.go = true;
     else if (a === "--array-only") o.arrayOnly = true;
+    else if (a === "--chip-only") o.chipOnly = true;
+    else if (a === "--prog" || a === "-p") o.prog = argv[++i];
     else if (a === "--step") o.step = true;
     else if (a === "--network" || a === "-n") o.network = argv[++i];
     else if (a === "--help" || a === "-h") o.help = true;
@@ -158,6 +166,11 @@ const HELP = `
     -n, --network   which network in config.js to use. Defaults to whichever
                     one config.js says is live. Rehearse on 'testnet'.
     --go            deploy ST8GateArray, then Chip against it.
+    --chip-only     deploy a chip against the gate array config.js already
+                    names, and send nothing else. The array is deployed once
+                    and shared by every chip after it.
+    -p, --prog      which program from the netlist the chip carries.
+                    Defaults to ledger.
     --array-only    deploy the gate array and stop. The launchpad needs the
                     array and does not need chip #1: the factory makes its own
                     chips against it, so chip #1 can be the first one launched
@@ -179,7 +192,7 @@ async function main() {
     (o.go ? " — sending" : " — preflight, nothing is sent"));
   const gaArt = artifact("ST8GateArray");
   const chipArt = artifact("Chip");
-  const rom = chipRom();
+  const rom = chipRom(o.prog);
   const rpc = client(C.rpc);
 
   /* ------------------------------------------------------------- the chain */
@@ -188,7 +201,19 @@ async function main() {
   console.log("=".repeat(62));
   const chainId = await rpc.chainId();
   const block = await rpc.blockNumber();
-  const gasPrice = await rpc.gasPrice();
+  /* Priced off the head, not off a quote.
+   *
+   * eth_gasPrice is a snapshot taken before the preflight prints and the
+   * operator reads it, and this chain drifts in that gap: a send was refused
+   * today with maxFeePerGas 301,228,000 against a base fee of 302,428,000.
+   * The sibling deploy script had this fixed and this one did not, which is
+   * how the same failure arrives twice. Take whichever is higher and add half
+   * again; a legacy transaction refunds nothing above the base fee, so the
+   * headroom costs nothing except in the block where it is needed. */
+  const quoted = BigInt(await rpc.gasPrice());
+  const head = await rpc.call("eth_getBlockByNumber", ["latest", false]);
+  const baseFee = head && head.baseFeePerGas ? BigInt(head.baseFeePerGas) : 0n;
+  const gasPrice = ((quoted > baseFee ? quoted : baseFee) * 15n) / 10n;
   console.log("  network         " + C.network +
     (C.network === "mainnet" ? "" : "   (a rehearsal: nothing here is the launch)"));
   console.log("  endpoint        " + C.rpc);
@@ -201,7 +226,15 @@ async function main() {
 
   /* ------------------------------------------------------------ already up? */
 
-  if (C.gateArray || C.chip) {
+  /* A second chip is a normal thing to want; a second gate array is not.
+     The array is deployed once and every chip after it shares the one that
+     exists, so --chip-only is the only mode allowed past this guard. */
+  if (o.chipOnly) {
+    if (!C.gateArray) die("--chip-only needs a gateArray in config.js and there is none");
+    console.log("  gate array   " + C.gateArray + "  (already deployed, reused)");
+    console.log("  program      " + o.prog);
+    console.log("");
+  } else if (C.gateArray || C.chip) {
     console.log("  config.js already names an address:");
     if (C.gateArray) console.log("    gateArray  " + C.gateArray);
     if (C.chip) console.log("    chip       " + C.chip);
@@ -243,6 +276,16 @@ async function main() {
 
   console.log("What it costs");
   console.log("=".repeat(62));
+  if (o.chipOnly) {
+    console.log("  ST8GateArray               not sent   --chip-only, reusing " +
+      C.gateArray.slice(0, 10));
+    console.log("  Chip            " + chipGas.toLocaleString().padStart(12) + " gas   " +
+      chipArt.deployedSize.toLocaleString() + " B deployed, " +
+      rom.words + "-word ROM");
+    console.log("  " + "-".repeat(58));
+    console.log("  total           " + chipGas.toLocaleString().padStart(12) + " gas   " +
+      eth(chipGas * gasPrice) + " " + C.nativeSymbol);
+  } else {
   console.log("  ST8GateArray    " + gaGas.toLocaleString().padStart(12) + " gas   " +
     gaArt.deployedSize.toLocaleString() + " B deployed");
   if (o.arrayOnly) {
@@ -257,6 +300,7 @@ async function main() {
     console.log("  " + "-".repeat(58));
     console.log("  total           " + total.toLocaleString().padStart(12) + " gas   " +
       eth(cost) + " " + C.nativeSymbol);
+  }
   }
   console.log("");
 
@@ -320,7 +364,9 @@ async function main() {
   console.log("=".repeat(62));
 
   // Twenty per cent over the estimate, so a busy block does not strand it.
-  const gateArray = await send("ST8GateArray", gaArt.bytecode, gaGas * 12n / 10n);
+  const gateArray = o.chipOnly
+    ? C.gateArray
+    : await send("ST8GateArray", gaArt.bytecode, gaGas * 12n / 10n);
 
   let chip = null;
   if (!o.arrayOnly) {

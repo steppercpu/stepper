@@ -74,6 +74,49 @@ window.CONFIG = (function () {
       // and finds they match.
       chip: "0x88d965bccc9265eac8022524723cb1eb13d6960e",
       chipToken: "0x847ce1e7505b4323ca6c06caee97d87aa8c481ca",
+
+      // The chip this project runs itself, deployed 12 September 2026
+      // against the gate array above and carrying the digest program.
+      //
+      // It has no token of its own on purpose. A second token would compete
+      // with STEP for the same attention and this machine exists to give
+      // STEP something to pay for, not to be paid for.
+      //
+      // The program folds every sponsor's byte into one number in the order
+      // they arrived, so the output port carries the whole of its past
+      // rather than its last visitor. It never halts: the build refuses to
+      // ship a netlist unless it survives 20,000 cycles of random input.
+      motherChip: "0x7Fb3A882e801A49C41E678c52BceCF9B05283003",
+
+      // The cycle reserve for the chip above, deployed 12 September 2026.
+      //
+      // It advances that one chip and pays whoever asked, 200 STEP an edge,
+      // fixed at construction. One non-view function in the whole contract,
+      // no owner, no pause, no setter, nothing payable. Filling it is a plain
+      // transfer and there is no way to take anything back out, including for
+      // whoever deployed it.
+      //
+      // `edgesRemaining()` is the honest live number: how many more edges the
+      // reserve can pay for, which reads zero the moment it cannot cover one.
+      rebate: "0x94b00a1889a6ca25c578c7fd1ef488aa65ae32cc",
+
+      // Chips this project runs, and what each one is for.
+      //
+      // Everything the factory has minted appears in the fleet table, ours and
+      // everybody else's, read from the same calls. This map only decides
+      // which rows carry a label, so a reader can tell a machine we operate
+      // from a machine somebody else launched without having to know our
+      // addresses by heart.
+      //
+      // It is a declaration and not a proof, which is why the label is a word
+      // rather than a claim: the address beside it is the thing to check, and
+      // a chip is exactly as open to everyone whatever is written here. No
+      // entry in this map gives a chip a privilege, because there is no
+      // privilege in Chip.sol to give it.
+      projectChips: {
+        "0x88d965bccc9265eac8022524723cb1eb13d6960e": "first chip",
+        "0x7fb3a882e801a49c41e678c52bcecf9b05283003": "the mother chip",
+      },
       // ---- R1: the launchpad, not needed for T-0 ------------------------
       factory: "0xf209De11d54CF0967496D8eD1C79A47242eF3437",   // ERC-721 + mint + per-chip tokens
       renderer: "0x371e9803432550b052da01Cb9fd8F0Fed036d83e",  // what the factory calls
