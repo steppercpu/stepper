@@ -109,6 +109,7 @@ jobs:
           npm run launchpad
           npm run router
           npm run rebate
+          npm run court
 
       # There is no selector check here. `npm run abi` proves the page's ABI
       # encoder against ethers, and the page is not in this repository — the

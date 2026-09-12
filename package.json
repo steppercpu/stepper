@@ -46,7 +46,8 @@
     "score": "node tools/score.js",
     "audio": "node tools/render-audio.js",
     "examples": "node tools/examples-check.js",
-    "rebate": "node tools/rebate-test.js"
+    "rebate": "node tools/rebate-test.js",
+    "court": "node tools/court-test.js"
   },
   "devDependencies": {
     "@ethereumjs/common": "^4.4.0",
