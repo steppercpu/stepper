@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Spec} from "./IGateArray.sol";
+import {Machine} from "./Machine.sol";
 
 /// @notice The silicon, evaluated as a pure function of a supplied state.
 interface IGateArrayStep {
@@ -102,22 +103,21 @@ contract StepVerifier {
         Spec memory s = IChipFacts(chip).spec();
 
         if (state.length != s.stateWords) revert BadStateLength();
-        if (ram.length != _ramWords(s)) revert BadRamLength();
-        if (inValue > _mask(s.dataBits)) revert InputTooWide();
-        if (_bit(state, s.haltBit) == 1) revert Halted();
+        if (ram.length != Machine.ramWords(s)) revert BadRamLength();
+        if (inValue > Machine.mask(s.dataBits)) revert InputTooWide();
+        if (Machine.bit(state, s.haltBit) == 1) revert Halted();
 
         /* The counter lives above the architectural bits of the last word and
            the gates never see it. Masking rather than rejecting keeps a caller
            who passed a raw `state()` result from getting a wrong answer. */
-        uint256[] memory q = new uint256[](state.length);
-        for (uint256 i = 0; i < state.length; ++i) q[i] = state[i];
-        q[q.length - 1] &= (uint256(1) << _cycleShift(s)) - 1;
+        uint256[] memory q = Machine.strip(s, state);
 
-        uint256 at = _field(q, s.pcOffset, s.pcBits);
-        uint256 rdata = _read(s, ram, _field(q, s.ramAddrOffset, s.ramAddrBits));
+        uint256 at = Machine.field(q, s.pcOffset, s.pcBits);
+        uint256 rdata =
+            Machine.readRam(s, ram, Machine.field(q, s.ramAddrOffset, s.ramAddrBits));
 
         next = IGateArrayStep(IChipFacts(chip).ARRAY()).step(
-            q, _inputs(s, _rom(chip, at), inValue, rdata)
+            q, Machine.inputs(s, _rom(chip, at), inValue, rdata)
         );
         if (next.length != s.stateWords) revert BadReturn();
 
@@ -127,12 +127,12 @@ contract StepVerifier {
         nextRam = new uint256[](ram.length);
         for (uint256 i = 0; i < ram.length; ++i) nextRam[i] = ram[i];
 
-        if (_bit(next, s.ramWeBit) == 1) {
-            _write(
+        if (Machine.bit(next, s.ramWeBit) == 1) {
+            Machine.writeRam(
                 s,
                 nextRam,
-                _field(next, s.ramAddrOffset, s.ramAddrBits),
-                _field(next, s.ramWdataOffset, s.ramWdataBits)
+                Machine.field(next, s.ramAddrOffset, s.ramAddrBits),
+                Machine.field(next, s.ramWdataOffset, s.ramWdataBits)
             );
         }
     }
@@ -172,94 +172,9 @@ contract StepVerifier {
         }
     }
 
-    /* ------------------------------------------------------------- fields */
-
-    /// @dev The counter sits above every architectural bit, so the shift is the
-    ///      number of flip-flops that live in the last word.
-    function _cycleShift(Spec memory s) private pure returns (uint256) {
-        uint256 inLast = uint256(s.flops) - (uint256(s.stateWords) - 1) * 256;
-        return inLast;
-    }
-
-    function _mask(uint256 bits) private pure returns (uint256) {
-        return bits >= 256 ? type(uint256).max : (uint256(1) << bits) - 1;
-    }
-
-    function _bit(uint256[] memory v, uint256 i) private pure returns (uint256) {
-        return (v[i / 256] >> (i % 256)) & 1;
-    }
-
-    /// @dev A field may straddle two words, which is why this is not one shift.
-    function _field(uint256[] memory v, uint256 offset, uint256 bits)
-        private
-        pure
-        returns (uint256 out)
-    {
-        uint256 w = offset / 256;
-        uint256 b = offset % 256;
-        out = v[w] >> b;
-        if (b + bits > 256) out |= v[w + 1] << (256 - b);
-        out &= _mask(bits);
-    }
-
-    function _inputs(Spec memory s, uint256 instr, uint256 inValue, uint256 rdata)
-        private
-        pure
-        returns (uint256[] memory packed)
-    {
-        packed = new uint256[](s.inputWords);
-        packed[0] = instr
-            | (inValue << s.instrBits)
-            | (rdata << (uint256(s.instrBits) + uint256(s.dataBits)));
-    }
-
-    /* ---------------------------------------------------------- ROM and RAM */
-
-    /// @dev The ROM is contract code, four big-endian bytes a word, one byte in.
-    ///      Read the way the chip reads it, because a second way of reading the
-    ///      same bytes is a second thing that can be wrong.
-    function _rom(address chip, uint256 at) private view returns (uint256 word) {
-        if (at >= IChipFacts(chip).ROM_WORDS()) return 0;
-        address src = IChipFacts(chip).ROM();
-        assembly {
-            let p := mload(0x40)
-            mstore(p, 0)
-            extcodecopy(src, add(p, 28), add(1, mul(at, 4)), 4)
-            word := mload(p)
-        }
-    }
-
-    /// @dev Cells to a word, and words to hold every addressable cell. Both
-    ///      follow from the spec, so a chip of any generation is described by
-    ///      the same two lines.
-    function _perWord(Spec memory s) private pure returns (uint256) {
-        return 256 / uint256(s.ramWdataBits);
-    }
-
-    function _ramWords(Spec memory s) private pure returns (uint256) {
-        uint256 cells = uint256(1) << s.ramAddrBits;
-        uint256 per = _perWord(s);
-        return (cells + per - 1) / per;
-    }
-
-    function _read(Spec memory s, uint256[] memory ram, uint256 a)
-        private
-        pure
-        returns (uint256)
-    {
-        uint256 per = _perWord(s);
-        if (a / per >= ram.length) return 0;
-        return (ram[a / per] >> ((a % per) * s.ramWdataBits)) & _mask(s.ramWdataBits);
-    }
-
-    function _write(Spec memory s, uint256[] memory ram, uint256 a, uint256 v)
-        private
-        pure
-    {
-        uint256 per = _perWord(s);
-        if (a / per >= ram.length) return;
-        uint256 shift = (a % per) * s.ramWdataBits;
-        uint256 m = _mask(s.ramWdataBits) << shift;
-        ram[a / per] = (ram[a / per] & ~m) | ((v << shift) & m);
+    /// @dev Both facts come off the chip, so a ROM word read here is a word of
+    ///      that chip's program and cannot be made to describe another one.
+    function _rom(address chip, uint256 at) private view returns (uint256) {
+        return Machine.romWord(IChipFacts(chip).ROM(), IChipFacts(chip).ROM_WORDS(), at);
     }
 }
