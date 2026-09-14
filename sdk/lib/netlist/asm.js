@@ -140,6 +140,34 @@ var LEDGER = [
 ].join("\n");
 
 /**
+ * digest: folds every sponsor into one number, in the order they arrived.
+ *
+ * The ledger sums the bytes it is sent, and addition commutes: two different
+ * sequences of sponsors produce the same total, so the sum records who paid
+ * and not when. Rotating the accumulator before folding fixes that. What comes
+ * out is a signature of the exact sequence, and it cannot be produced without
+ * having replayed the same history.
+ *
+ * The output port carries the digest rather than an echo, so the machine shows
+ * the whole of its past instead of its last visitor.
+ *
+ * It must never halt. There is no `hlt` in it and the only jump is
+ * unconditional, so no input and no state can stop it. The build proves that
+ * rather than trusting the reading.
+ */
+var DIGEST = [
+  "        ldi r2, #0        ; the digest so far",
+  "        ldi r3, #0        ; where the next trace lands",
+  "loop:   in  r0            ; the byte whoever paid for this edge sent",
+  "        rol r2            ; rotate first, so the order of sponsors matters",
+  "        xor r2, r0        ; fold this one in",
+  "        out r2            ; the digest, on the output port",
+  "        st  [r3], r2      ; keep a trace of it",
+  "        inc r3            ; wraps at 256 and starts overwriting",
+  "        jmp loop",
+].join("\n");
+
+/**
  * selftest — exercises the ALU, both flags, the shifter and a RAM round trip,
  * then halts on purpose. Any failure jumps to `fail`, which puts 255 on the
  * output port, so a wrong answer is visible on the LEDs rather than silent.
@@ -180,6 +208,6 @@ var SELFTEST = [
 
 module.exports = {
   assemble: assemble,
-  sources: { ledger: LEDGER, selftest: SELFTEST },
+  sources: { ledger: LEDGER, digest: DIGEST, selftest: SELFTEST },
   forms: FORMS,
 };
