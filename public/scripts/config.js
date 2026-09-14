@@ -100,6 +100,25 @@ window.CONFIG = (function () {
       // reserve can pay for, which reads zero the moment it cannot cover one.
       rebate: "0x94b00a1889a6ca25c578c7fd1ef488aa65ae32cc",
 
+      // ---- The port, and the bus that clocks a chip through it ----------
+      //
+      // A chip has an input port and an output port and that is the whole of
+      // its contact with the world. A bus is what puts something on the far
+      // side of them: it senses, presents the byte, runs the gates, latches,
+      // and then drives whatever the device drives.
+      //
+      // Both are null until deployed, and the page says so rather than
+      // drawing a dial with nothing behind it.
+      //
+      // The device is fixed at construction and so is the window it converts
+      // on. Neither has a setter, because an owner who could move the window
+      // could rewrite what the processor saw after the fact, and an owner who
+      // could swap the device could change every byte in and every byte out
+      // without touching a gate. To change either, deploy another bus; the
+      // chip is untouched, because the chip has no idea a bus exists.
+      bus: null,
+      port: null,
+
       // Chips this project runs, and what each one is for.
       //
       // Everything the factory has minted appears in the fleet table, ours and
