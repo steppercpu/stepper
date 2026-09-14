@@ -40,7 +40,7 @@ function compile() {
     language: "Solidity",
     sources: {},
     settings: {
-      // The gate walk runs 2,096 times per call and the deploy happens once,
+      // The gate walk runs 2,161 times per call and the deploy happens once,
       // so the optimiser is tuned for the call, not for the code size. 200 is
       // the default and it is the right default here: a higher number inlines
       // more and the table is already the bulk of the bytecode.

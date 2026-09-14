@@ -12,8 +12,8 @@
  * that constants and primaries come first and every surviving gate output is
  * the next index after the previous one. That is not a trick, it falls out of
  * building in call order: a gate can only name nets that already exist. So the
- * output column is implicit, the table stores just the two inputs, and 2,096
- * gates fit in 8.2 kB instead of 12.3 kB. A synthesised netlist cannot do this
+ * output column is implicit, the table stores just the two inputs, and 2,161
+ * gates fit in 8.4 kB instead of 12.7 kB. A synthesised netlist cannot do this
  * without sorting first, and after sorting it would have to store the mapping
  * it just created.
  *
