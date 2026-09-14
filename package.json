@@ -50,7 +50,8 @@
     "court": "node tools/court-test.js",
     "bus": "node tools/bus-test.js",
     "feeds": "node tools/feeds.js",
-    "deploy-bus": "node tools/deploy-bus.js"
+    "deploy-bus": "node tools/deploy-bus.js",
+    "overflow": "node tools/overflow-check.js"
   },
   "devDependencies": {
     "@ethereumjs/common": "^4.4.0",
