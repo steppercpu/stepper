@@ -116,8 +116,8 @@ window.CONFIG = (function () {
       // could swap the device could change every byte in and every byte out
       // without touching a gate. To change either, deploy another bus; the
       // chip is untouched, because the chip has no idea a bus exists.
-      bus: null,
-      port: null,
+      bus: "0x34e83464e6230aaaac358ba650fb3825c48aff0d",
+      port: "0xa3057cf7f08a2ff485b5f7608e902e1f4bfc4487",
 
       // Chips this project runs, and what each one is for.
       //

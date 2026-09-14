@@ -49,6 +49,30 @@ arrived, and writes a trace into one of 256 cells each edge. It has no token
 of its own, on purpose. Neither chip has an owner and neither program can be
 rewritten.
 
+## The port
+
+| | |
+|:--|:--|
+| `Bus` | `0x34e83464e6230aaaac358ba650fb3825c48aff0d` |
+| `FeedPort` | `0xa3057cf7f08a2ff485b5f7608e902e1f4bfc4487` |
+| The source it converts | `0xf0791ed71ccd40b1b749b0aac35528cf16d103c6` |
+
+The bus clocks the mother chip through the port. One edge is: convert,
+present, run the gates, latch, drive. `tick()` is open to every address and
+`preview()` returns what the next edge would do before anybody pays for it.
+
+The port maps 1,800 to 3,200 onto the full 0-255 swing at eight decimals, so
+one bit is worth about 5.49, and refuses a reading older than 3,600 seconds
+rather than handing the processor a stale number.
+
+Neither has an owner, a pause, a setter or an upgrade path. The device is
+fixed at construction and so is the window, because an owner able to move
+either could rewrite what the processor sensed without touching a gate. To
+change either, deploy another bus; the chip is untouched, because the chip
+has no idea a bus exists.
+
+---
+
 ## The reserve
 
 | | |
