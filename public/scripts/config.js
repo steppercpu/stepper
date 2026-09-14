@@ -119,6 +119,34 @@ window.CONFIG = (function () {
       bus: "0x34e83464e6230aaaac358ba650fb3825c48aff0d",
       port: "0xa3057cf7f08a2ff485b5f7608e902e1f4bfc4487",
 
+      // Every pair that is wired, in the order the page offers them. The
+      // two above are the first of these and stay named on their own so a
+      // reader of this file, and any script that only wants one, still
+      // finds a single answer.
+      //
+      // They all clock the same chip, which is not a compromise: a chip has
+      // no privileged caller and no idea a bus exists, so two instruments
+      // on one processor is the arrangement a bus was made for. What each
+      // pair owns is its own conversion, and that is the part that cannot
+      // be changed once it is deployed.
+      //
+      // The stock port allows a longer silence than the crypto one. An
+      // equity does not trade around the clock, so refusing it after an
+      // hour would be calling a closed market a fault. Six hours is the
+      // gap a weekend does not fit through either.
+      ports: [
+        {
+          label: "ETH / USD",
+          bus: "0x34e83464e6230aaaac358ba650fb3825c48aff0d",
+          port: "0xa3057cf7f08a2ff485b5f7608e902e1f4bfc4487",
+        },
+        {
+          label: "NVDA / USD",
+          bus: "0xdca942bcf7d75f4cdcc678aa126eda61d45b4b7d",
+          port: "0x48e375b219f271488cf876d57a62168d0257decf",
+        },
+      ],
+
       // Chips this project runs, and what each one is for.
       //
       // Everything the factory has minted appears in the fleet table, ours and

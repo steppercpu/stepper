@@ -51,25 +51,34 @@ rewritten.
 
 ## The port
 
-| | |
-|:--|:--|
-| `Bus` | `0x34e83464e6230aaaac358ba650fb3825c48aff0d` |
-| `FeedPort` | `0xa3057cf7f08a2ff485b5f7608e902e1f4bfc4487` |
-| The source it converts | `0xf0791ed71ccd40b1b749b0aac35528cf16d103c6` |
+Two pairs are wired. Each is a bus and the device on the far side of it.
 
-The bus clocks the mother chip through the port. One edge is: convert,
-present, run the gates, latch, drive. `tick()` is open to every address and
-`preview()` returns what the next edge would do before anybody pays for it.
+| | ETH / USD | NVDA / USD |
+|:--|:--|:--|
+| `Bus` | `0x34e83464e6230aaaac358ba650fb3825c48aff0d` | `0xdca942bcf7d75f4cdcc678aa126eda61d45b4b7d` |
+| `FeedPort` | `0xa3057cf7f08a2ff485b5f7608e902e1f4bfc4487` | `0x48e375b219f271488cf876d57a62168d0257decf` |
+| Source | `0xf0791ed71ccd40b1b749b0aac35528cf16d103c6` | `0x5798d6c6299376aa6b790148b0f049ee570417dd` |
+| Window | 1,800 to 3,200 | 150 to 270 |
+| One step | 5.49 | 0.47 |
+| Stale after | 3,600s | 21,600s |
 
-The port maps 1,800 to 3,200 onto the full 0-255 swing at eight decimals, so
-one bit is worth about 5.49, and refuses a reading older than 3,600 seconds
-rather than handing the processor a stale number.
+One edge is: convert, present, run the gates, latch, drive. `tick()` is open to
+every address, and `preview()` returns what the next edge would do before
+anybody pays for it.
 
-Neither has an owner, a pause, a setter or an upgrade path. The device is
-fixed at construction and so is the window, because an owner able to move
-either could rewrite what the processor sensed without touching a gate. To
-change either, deploy another bus; the chip is untouched, because the chip
-has no idea a bus exists.
+Both clock the mother chip. A chip has no privileged caller and no idea a bus
+exists, so two instruments on one processor is the arrangement a bus was made
+for. What each pair owns is its own conversion.
+
+The stock port allows a longer silence than the crypto one. An equity does not
+trade around the clock, so refusing a reading after an hour would be calling a
+closed market a fault.
+
+Neither has an owner, a pause, a setter or an upgrade path. The device is fixed
+at construction and so is the window, because an owner able to move either could
+rewrite what the processor sensed without touching a gate. To change either,
+deploy another bus; the chip is untouched, because the chip has no idea a bus
+exists.
 
 ---
 
