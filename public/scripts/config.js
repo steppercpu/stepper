@@ -134,6 +134,39 @@ window.CONFIG = (function () {
       // equity does not trade around the clock, so refusing it after an
       // hour would be calling a closed market a fault. Six hours is the
       // gap a weekend does not fit through either.
+      // What this chain publishes, found by the event an aggregator emits
+      // when it publishes and then asked directly what it prices. The page
+      // reads every one of these live; nothing here is a stored price.
+      //
+      // A port can be wired to any of them. Two of them have one.
+      // Every source found on this chain by the event an aggregator emits
+      // when it publishes. Addresses and nothing else: what each one prices,
+      // at what scale, and how long ago is asked of the contract when the
+      // page loads, so this file cannot describe a feed differently from how
+      // the feed describes itself.
+      //
+      // A port can be wired to any of them. Two of them have one, and the
+      // page marks those by asking each port which address it holds rather
+      // than by trusting a flag written here.
+      feeds: [
+        "0x5798d6c6299376aa6b790148b0f049ee570417dd",
+        "0xe9bc1dc85ab79d1432566ff257725ce1f0c693c9",
+        "0x8420a513416ba96d73da6b6484acd48c1d76ffc6",
+        "0x38099bfdb9a387c217f9fbc10260fa4579681e69",
+        "0x7ca256a15b58ff1fe4223fbfa79b33338ef888c4",
+        "0x6ffac71de69c8dc573ffe7bd412296261ab7c8b5",
+        "0x818a499fb7554ce69c3513501b64b476e7a7d3f1",
+        "0x275da14a700fc14fed1dbab9f50ebb4546ec1e05",
+        "0x901d8df245e48dfc82d6483fc45b5be6ddc5281a",
+        "0x55bd01f666c99e4590e084fdeff88041bb50ccd1",
+        "0xe50c4775fefc1e3c9206771dd0056aee30f51b2f",
+        "0x315afd0f71d5407b99ad19ab001a67af40fbaaf4",
+        "0x5eaa223c585f40cdca2d119ea91b97c491245631",
+        "0xf0791ed71ccd40b1b749b0aac35528cf16d103c6",
+        "0xc1ca06f00815a8c8d53a34fac69ee7d18962fea3",
+        "0x815d23392a48bee944c872cbbb4bc47691ef710f",
+      ],
+
       ports: [
         {
           label: "ETH / USD",
